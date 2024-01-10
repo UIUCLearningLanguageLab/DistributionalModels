@@ -77,5 +77,20 @@ class NeuralNetwork(nn.Module):
 
         return weight_array
 
+    def save_model(self, model, filepath):
+        """
+        Save the model's state dictionary to a file.
+        """
+        torch.save(self, filepath)
+
+    @classmethod
+    def load_model(cls, filepath, device=torch.device('cpu')):
+        """
+        Load a model's state dictionary from a file.
+        """
+        model = cls()  # Create an instance of the model
+        model.load_state_dict(torch.load(filepath, map_location=device))
+        return model
+
 
 
