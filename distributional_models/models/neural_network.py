@@ -4,10 +4,10 @@ import torch.optim as optim
 
 
 class NeuralNetwork(nn.Module):
-    def __init__(self, device):
+    def __init__(self, corpus, device):
 
         super(NeuralNetwork, self).__init__()
-
+        self.vocab_size = corpus.vocab_size
         self.layer_dict = torch.nn.ModuleDict()
         self.hidden_dict = None
         self.device = None

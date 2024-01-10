@@ -11,10 +11,12 @@ class LSTM(NeuralNetwork):
                  weight_init,
                  device):
 
-        super(LSTM, self).__init__(device)
+        super(LSTM, self).__init__(corpus, device)
+        self.model_type = 'lstm'
         self.corpus = corpus
         self.embedding_size = embedding_size
         self.hidden_size = hidden_size
+        
 
         self.define_network()
         self.set_device(device)

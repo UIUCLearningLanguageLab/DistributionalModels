@@ -11,7 +11,8 @@ class SRN(NeuralNetwork):
                  weight_init,
                  device):
 
-        super(SRN, self).__init__(device)
+        super(SRN, self).__init__(corpus, device)
+        self.model_type = 'srn'
         self.corpus = corpus
         self.embedding_size = embedding_size
         self.hidden_size = hidden_size

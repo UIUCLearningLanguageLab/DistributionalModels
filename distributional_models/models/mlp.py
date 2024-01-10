@@ -11,7 +11,8 @@ class MLP(NeuralNetwork):
                  weight_init,
                  device):
 
-        super(MLP, self).__init__(device)
+        super(MLP, self).__init__(corpus, device)
+        self.model_type = 'mlp'
         self.corpus = corpus
         self.embedding_size = embedding_size
         self.hidden_size = hidden_size
