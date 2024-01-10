@@ -3,7 +3,7 @@ import torch.nn as nn
 from .neural_network import NeuralNetwork
 
 
-class LSTM(NeuralNetwork):
+class MLP(NeuralNetwork):
     def __init__(self,
                  corpus,
                  embedding_size,
@@ -11,7 +11,7 @@ class LSTM(NeuralNetwork):
                  weight_init,
                  device):
 
-        super(LSTM, self).__init__(device)
+        super(MLP, self).__init__(device)
         self.corpus = corpus
         self.embedding_size = embedding_size
         self.hidden_size = hidden_size
@@ -24,24 +24,26 @@ class LSTM(NeuralNetwork):
         if self.embedding_size == 0:
             embedding_weights = torch.eye(self.corpus.vocab_size)
             self.layer_dict['embedding'] = nn.Embedding.from_pretrained(embedding_weights, freeze=True)
-            self.layer_dict['lstm'] = nn.LSTM(self.corpus.vocab_size, self.hidden_size, batch_first=True)
+            self.layer_dict['hidden'] = nn.Linear(self.corpus.vocab_size, self.hidden_size)
         else:
             self.layer_dict['embedding'] = nn.Embedding(self.corpus.vocab_size, self.embedding_size)
-            self.layer_dict['lstm'] = nn.LSTM(self.embedding_size, self.hidden_size, batch_first=True)
+            self.layer_dict['hidden'] = nn.Linear(self.embedding_size, self.hidden_size)
 
+        self.layer_dict['relu'] = nn.ReLU()
         self.layer_dict['output'] = nn.Linear(self.hidden_size, self.corpus.vocab_size)
 
     def forward(self, x):
 
         embedding_out = self.layer_dict['embedding'](x)
         # LSTM layer
-        lstm_out, self.hidden_dict['lstm'] = self.layer_dict['lstm'](embedding_out, self.hidden_dict['lstm'])
+        z = self.layer_dict['hidden'](embedding_out)
+        h = self.layer_dict['relu'](z)
 
         # Only take the output from the final timestep
         # You can modify this part to return the output at each timestep
-        lstm_out = lstm_out[:, -1, :]
+        # TODO Do we still need this
+        h = h[:, -1, :]
 
         # Output layer
-        out = self.layer_dict['output'](lstm_out)
-
+        out = self.layer_dict['output'](h)
         return out

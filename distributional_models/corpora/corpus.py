@@ -28,6 +28,7 @@ class Corpus(Dataset):
 
         self.init_corpus()
 
+        self.index_list = None
         self.x_list = None  # the 1D list of indexes
         self.y_list = None
 
@@ -191,11 +192,13 @@ class Corpus(Dataset):
         y = []
         for i in range(len(index_list)):
             for j in range(1, window_size + 1):
-                x.append(index_list[i])
+
                 # Check if the index is within the bounds of the list
                 if i - j >= 0:
+                    x.append(index_list[i])
                     y.append(index_list[i - j])
                 if i + j < len(index_list):
+                    x.append(index_list[i])
                     y.append(index_list[i + j])
         return x, y
 
@@ -206,7 +209,7 @@ class Corpus(Dataset):
         else:
             x = index_list[:-1]
             y = index_list[1:]
-        return x, y
+        return x, y, index_list
 
     @staticmethod
     def tokenize(text_string):
