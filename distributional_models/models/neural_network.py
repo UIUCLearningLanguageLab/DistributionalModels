@@ -77,7 +77,7 @@ class NeuralNetwork(nn.Module):
 
         return weight_array
 
-    def save_model(self, model, filepath):
+    def save_model(self, filepath):
         """
         Save the model's state dictionary to a file.
         """
