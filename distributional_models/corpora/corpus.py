@@ -57,7 +57,6 @@ class Corpus(Dataset):
         return text
 
     def add_document(self, sequence_list, tokenized=False, document_info_dict=None):
-
         if document_info_dict is None:
             document_info_dict = {}
 
@@ -173,56 +172,40 @@ class Corpus(Dataset):
         return flat_list
 
     @staticmethod
-    def create_simple_sequence_list(flattened_list, vocab_index_dict, unknown_token):
-        sequence_list = []
+    def create_simple_index_list(flattened_list, vocab_index_dict, unknown_token):
+        index_list = []
         for token in flattened_list:
             if token in vocab_index_dict:
                 current_index = vocab_index_dict[token]
             else:
                 current_index = vocab_index_dict[unknown_token]
 
-            sequence_list.append(current_index)
-        return sequence_list
+            index_list.append(current_index)
+        return index_list
 
     @staticmethod
-    def create_windowed_sequence_list(sequence_list, window_size):
+    def create_windowed_index_list(index_list, window_size):
         if window_size == 0:
             raise ValueError("Window size cannot be 0, must be None or positive integer")
         x = []
         y = []
-        for i in range(len(sequence_list)):
+        for i in range(len(index_list)):
             for j in range(1, window_size + 1):
-                x.append(sequence_list[i])
+                x.append(index_list[i])
                 # Check if the index is within the bounds of the list
                 if i - j >= 0:
-                    y.append(sequence_list[i - j])
-                if i + j < len(sequence_list):
-                    y.append(sequence_list[i + j])
+                    y.append(index_list[i - j])
+                if i + j < len(index_list):
+                    y.append(index_list[i + j])
         return x, y
 
-    @staticmethod
-    def create_padded_sequence_list(sequence_list, sequence_length, pad_index):
-        # Add padding at the beginning and end of the sequence list
-        padded_sequence_list = [pad_index] * sequence_length + sequence_list + [pad_index] * sequence_length
-
-        # Create sequences for x
-        x = []
-        y = []
-        for i in range(len(padded_sequence_list) - sequence_length):
-            x_seq = padded_sequence_list[i:i + sequence_length]
-            x.append(x_seq)
-            y_seq = padded_sequence_list[i + sequence_length]
-            y.append([y_seq])
-        return x, y
-
-
-    def create_sequence_list(self, flattened_list, vocab_index_dict, unknown_token, window_size=None):
-        sequence_list = self.create_simple_sequence_list(flattened_list, vocab_index_dict, unknown_token)
+    def create_index_list(self, flattened_list, vocab_index_dict, unknown_token, window_size=None):
+        index_list = self.create_simple_index_list(flattened_list, vocab_index_dict, unknown_token)
         if window_size is not None:
-            x, y = self.create_windowed_sequence_list(sequence_list)
+            x, y = self.create_windowed_index_list(index_list, window_size)
         else:
-            x = sequence_list[:-1]
-            y = sequence_list[1:]
+            x = index_list[:-1]
+            y = index_list[1:]
         return x, y
 
     @staticmethod
@@ -267,3 +250,69 @@ class Corpus(Dataset):
         """Load the instance from a file."""
         with open(file_path, 'rb') as file:
             return pickle.load(file)
+
+    @staticmethod
+    def create_one_hot_batches(x_batches, vocab_size):
+        one_hot_x_batches = []
+        for x_batch in x_batches:
+            # Create a tensor to hold the one-hot encoded batch on CPU
+            one_hot_batch = torch.zeros(*x_batch.shape, vocab_size, dtype=torch.float32)
+
+            # Advanced indexing to set the corresponding one-hot indices
+            indices = torch.arange(x_batch.numel(), dtype=torch.long).unsqueeze(-1)
+            values = x_batch.view(-1, 1)
+            one_hot_batch.view(-1, vocab_size).scatter_(1, values, 1)
+
+            # Move the one-hot encoded batch to MPS device
+
+        return one_hot_x_batches
+
+    @staticmethod
+    def create_sequence_lists(index_list, sequence_length, pad_index):
+        if sequence_length == 1:
+            # Each sequence is a single element from the index_list
+            return [[index] for index in index_list]
+        else:
+            # Original logic for longer sequences
+            padded_list = [pad_index] * (sequence_length - 1) + index_list + [pad_index] * (sequence_length - 1)
+            sequence_lists = []
+            for i in range(len(index_list) + 1):
+                sequence = padded_list[i:i + sequence_length]
+                sequence_lists.append(sequence)
+            return sequence_lists
+
+    @staticmethod
+    def create_batches(sequence_list, batch_size, sequence_length, pad_index):
+        x_batches = []
+        y_batches = []
+        current_batch_x = []
+        current_batch_y = []
+
+        if sequence_length == 1:
+            for i in range(len(sequence_list) - 1):
+                current_batch_x.append(sequence_list[i])
+                current_batch_y.append(sequence_list[i + 1])
+                if len(current_batch_x) == batch_size:
+                    x_batches.append(current_batch_x)
+                    y_batches.append(current_batch_y)
+                    current_batch_x = []
+                    current_batch_y = []
+        else:
+            for sequence in sequence_list:
+                current_batch_x.append(sequence[:-1])  # Take all but the last element
+                current_batch_y.append(sequence[-1])   # Take the last element
+                if len(current_batch_x) == batch_size:
+                    x_batches.append(current_batch_x)
+                    y_batches.append(current_batch_y)
+                    current_batch_x = []
+                    current_batch_y = []
+
+            # Pad the last batch if necessary
+            if current_batch_x:
+                while len(current_batch_x) < batch_size:
+                    current_batch_x.append([pad_index] * (len(sequence) - 1))
+                    current_batch_y.append(pad_index)
+                x_batches.append(current_batch_x)
+                y_batches.append(current_batch_y)
+
+        return x_batches, y_batches

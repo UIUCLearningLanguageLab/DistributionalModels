@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
+
 def classify(categories, hidden_sizes, test_proportion=.2, num_epochs=10, learning_rate=0.001,
              batch_size=64, optimizer=torch.nn.CrossEntropyLoss()):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -17,16 +18,22 @@ def classify(categories, hidden_sizes, test_proportion=.2, num_epochs=10, learni
     model = SimpleClassifier(categories, hidden_sizes, optimizer)
     model = model.to(device)
 
-    training_performance, test_performance = train_model(device, model, train_loader, test_loader,
-                                                         num_epochs, learning_rate)
+    training_performance_list, test_performance_list = train_model(device, model, train_loader, test_loader,
+                                                                   num_epochs, learning_rate)
 
-    return training_performance, test_performance
+    return training_performance_list, test_performance_list
+
 
 def train_model(device, model, train_loader, test_loader, num_epochs=10, learning_rate=0.001):
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    model.train()
+
+    training_performance_list = []
+    test_performance_list = []
+    training_performance_list.append(test_model(device, model, train_loader))
+    test_performance_list.append(test_model(device, model, test_loader))
 
     for epoch in range(num_epochs):
+        model.train()
         for input_labels, inputs, labels in train_loader:
             inputs = inputs.to(device, dtype=torch.float)
             labels = labels.to(device, dtype=torch.long)
@@ -40,10 +47,11 @@ def train_model(device, model, train_loader, test_loader, num_epochs=10, learnin
             loss.backward()
             optimizer.step()
 
-    training_performance = test_model(device, model, train_loader)
-    test_performance = test_model(device, model, test_loader)
+        training_performance_list.append(test_model(device, model, train_loader))
+        test_performance_list.append(test_model(device, model, test_loader))
 
-    return training_performance, test_performance
+    return training_performance_list, test_performance_list
+
 
 def test_model(device, model, test_loader):
     model.eval()  # Set the model to evaluation mode
@@ -68,6 +76,7 @@ def test_model(device, model, test_loader):
 
     performance_df = pd.DataFrame(data)
     return performance_df
+
 
 class SimpleClassifier(nn.Module):
     def __init__(self, categories, hidden_sizes, criterion):

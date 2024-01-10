@@ -10,22 +10,22 @@ class XAYBZ(corpus.Corpus):
                  num_ab_categories=2,
                  ab_category_size=3,
 
-                 x_category_size=2,
-                 y_category_size=2,
-                 z_category_size=2,
-                 min_x_per_sentence=1,
-                 max_x_per_sentence=1,
+                 x_category_size=0,
+                 y_category_size=3,
+                 z_category_size=0,
+                 min_x_per_sentence=0,
+                 max_x_per_sentence=0,
                  min_y_per_sentence=1,
                  max_y_per_sentence=1,
-                 min_z_per_sentence=1,
-                 max_z_per_sentence=1,
+                 min_z_per_sentence=0,
+                 max_z_per_sentence=0,
 
                  document_organization_rule='all_pairs',
                  document_repetitions=1,
                  document_sequence_rule='massed',
 
                  sentence_repetitions_per_document=0,
-                 sentence_sequence_rule='massed',
+                 sentence_sequence_rule='random',
 
                  word_order_rule='fixed',
                  include_punctuation=True,
@@ -185,6 +185,8 @@ class XAYBZ(corpus.Corpus):
         self.included_ab_pair_list = None
         self.omitted_ab_pair_list = None
 
+        self.word_category_dict = None
+
         self.check_parameters()
         self.create_corpus_name()
         self.create_vocabulary()
@@ -302,6 +304,7 @@ class XAYBZ(corpus.Corpus):
         self.generated_index_vocab_dict = {}
         self.generated_vocabulary_size = 0
 
+        # self.unknown_token = '<unk>'
         self.add_words_to_vocab(['.'])
         for i in range(self.num_ab_categories):
 
@@ -471,6 +474,7 @@ class XAYBZ(corpus.Corpus):
         for document in self.generated_document_list:
             self.add_document(document, tokenized=True, document_info_dict=None)
 
+
     def create_sentence(self, ab_pair, current_y_list=None):
         sentence = []
         num_x = random.randint(self.min_x_per_sentence, self.max_x_per_sentence)
@@ -500,15 +504,14 @@ class XAYBZ(corpus.Corpus):
             sentence.append(".")
         return sentence
 
-    def create_paradigmatic_category_file(self):
+    def create_word_category_dict(self):
         temp_word_category_dict = {}
-        for word in self.vocab_index_dict:
-            if word != 'PAD':
+        for word in self.generated_vocab_index_dict:
+            if word != '<unk>':
                 if word[0] == "A" or word[0] == 'B':
                     category = word[:2]
-                else:
-                    category = word[0]
-                temp_word_category_dict[word] = category
+                # else:
+                #     category = word[0]
+                    temp_word_category_dict[word] = category
 
-        paradigmatic_word_category_dict = {word: category for word, category in temp_word_category_dict.items()}
-        return paradigmatic_word_category_dict
+        self.word_category_dict = {word: category for word, category in temp_word_category_dict.items()}

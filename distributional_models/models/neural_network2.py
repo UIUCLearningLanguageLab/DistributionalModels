@@ -154,98 +154,6 @@ class NeuralNetwork(torch.nn.Module):
         size_list = []
         return layer_list, type_list, size_list, previous_layer_size
 
-    #     num_heads = layer_size[0]  # 8
-    #     head_size = layer_size[1]  # 4
-    #     total_heads = num_heads * head_size  # 32
-    #
-    #     heads = []
-    #     for i in range(num_heads):
-    #         key = torch.nn.Linear(previous_layer_size, head_size, bias=False)
-    #         query = torch.nn.Linear(previous_layer_size, head_size, bias=False)
-    #         value = torch.nn.Linear(previous_layer_size, head_size, bias=False)
-    #
-    #
-    #     self.heads = torch.nn.ModuleList([Head(head_size, embed_size, block_size) for i in range(num_heads)])
-    #
-    #
-    #     self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
-    #     pre_mask_attention_weights = None
-    #
-
-    #
-    # class Head(nn.Module):
-    #     def __init__(self, head_size, embed_size, block_size):
-    #         super().__init__()
-    #         self.key = nn.Linear(embed_size, head_size, bias=False)
-    #         self.query = nn.Linear(embed_size, head_size, bias=False)
-    #         self.value = nn.Linear(embed_size, head_size, bias=False)
-    #         self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
-    #         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    #         self.pre_mask_attention_weights = None
-    #
-    #     def forward(self, x):
-    #         B, T, C = x.shape
-    #         k = self.key(x)  # (B ,T, C)
-    #         q = self.query(x)  # (B ,T, C)
-    #         v = self.value(x)  # (B ,T, C)
-    #         # wei = q @ k.transpose(-2, -1) * C**-0.5 # scaled attention, original in paper "attention is all you need"
-    #         wei = q @ k.transpose(-2, -1) * C ** -0.5  # (B ,T, C) @  (B, C, T) -> (B, T, T)
-    #         self.pre_mask_attention_weights = wei.clone()
-    #         wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf'))  # (B, T, T)
-    #         wei = F.softmax(wei, dim=1)  # (B, T, T)
-    #
-    #         out = wei @ v  # (B, T, T) @ (B, T ,C) -> (B, T, C)
-    #         return out
-    #
-    # def forward(self, x):
-    #     attention_weights_list = []
-    #     head_outputs = []
-    #     for head in self.heads:
-    #         B, T, C = x.shape
-    #         k = self.key(x)  # (B ,T, C)
-    #         q = self.query(x)  # (B ,T, C)
-    #         v = self.value(x)  # (B ,T, C)
-    #         # wei = q @ k.transpose(-2, -1) * C**-0.5 # scaled attention, original in paper "attention is all you need"
-    #         wei = q @ k.transpose(-2, -1) * C ** -0.5  # (B ,T, C) @  (B, C, T) -> (B, T, T)
-    #         self.pre_mask_attention_weights = wei.clone()
-    #         wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf'))  # (B, T, T)
-    #         wei = F.softmax(wei, dim=1)  # (B, T, T)
-    #
-    #         out = wei @ v  # (B, T, T) @ (B, T ,C) -> (B, T, C)
-    #         head_outputs.append(head_output)
-    #
-    #         # Assuming pre_mask_attention_weights are stored in each head
-    #         attention_weights_list.append(head.pre_mask_attention_weights)
-    #
-    #     # Concatenating the outputs from all heads
-    #     combined_output = torch.cat(head_outputs, dim=-1)
-    #
-    #     # Average the attention weights across all heads
-    #     combined_attention_weights = torch.cat(attention_weights_list, dim=-1)
-    #     return combined_output, combined_attention_weights
-    #
-    # class MultiHeadAttention(nn.Module):
-    #     def __init__(self, num_heads, head_size, embed_size, block_size):
-    #         super().__init__()
-    #         self.heads = nn.ModuleList([Head(head_size, embed_size, block_size) for i in range(num_heads)])
-    #
-    #     def forward(self, x):
-    #         attention_weights_list = []
-    #         head_outputs = []
-    #         for head in self.heads:
-    #             head_output = head(x)
-    #             head_outputs.append(head_output)
-    #
-    #             # Assuming pre_mask_attention_weights are stored in each head
-    #             attention_weights_list.append(head.pre_mask_attention_weights)
-    #
-    #         # Concatenating the outputs from all heads
-    #         combined_output = torch.cat(head_outputs, dim=-1)
-    #
-    #         # Average the attention weights across all heads
-    #         combined_attention_weights = torch.cat(attention_weights_list, dim=-1)
-    #         return combined_output, combined_attention_weights
-
     def init_weights(self):
         for i in range(len(self.layer_list)):
             self.layer_list[i].weight.data.uniform_(-self.embed_init_range, self.embed_init_range)
@@ -324,14 +232,8 @@ class NeuralNetwork(torch.nn.Module):
                                                             sequence_length,
                                                             self.corpus.vocab_index_dict[self.unknown_token])
 
-        if isinstance(self.layer_list[0], (torch.nn.LSTM, torch.nn.RNN, torch.nn.Linear)):
-            x_list = self.get_one_hot_matrix(x_list)
-            x_tensor = torch.tensor(x_list, dtype=torch.float32)
-        elif isinstance(self.layer_list[0], torch.nn.Embedding):
-            x_tensor = torch.tensor(x_list, dtype=torch.long)
-        else:
-            raise NotImplementedError(f"Unimplemented Layer Type {self.layer_list[0]}")
-
+        x_list = self.get_one_hot_matrix(x_list)
+        x_tensor = torch.tensor(x_list, dtype=torch.float32)
         y_tensor = torch.tensor(y_list, dtype=torch.long).view(-1)
 
         # Move tensors to the device
@@ -346,14 +248,20 @@ class NeuralNetwork(torch.nn.Module):
         loss_sum = 0
         loss_n = 0
         start_time = time.time()
+        h, c = self.layer_state_list[0]
         for x_batch, y_batch in dataloader:
             current_batch_size = x_batch.size(0)
             if current_batch_size != batch_size:
                 self.layer_state_list = self.resize_states(self.layer_state_list, current_batch_size)
 
             self.optimizer.zero_grad()
-            output = self.forward(x_batch)
-            loss = self.criterion(output, y_batch)
+
+            x, (h, c) = self.layer_list[0](x_batch, (h, c))  # an LSTM layer
+            batch_output = self.layer_list[1](x)  # a linear layer
+            print("batch_output shape:", batch_output.shape)  # Should be [batch_size, num_classes]
+            print("y_batch shape:", y_batch.shape)
+
+            loss = self.criterion(batch_output, y_batch)
             loss_sum += loss.item()
             loss_n += len(x_batch)
             loss.backward()
@@ -363,25 +271,6 @@ class NeuralNetwork(torch.nn.Module):
         perplexity = np.exp(loss_sum / loss_n)  # converting cross-entropy loss to perplexity score
 
         return took, perplexity
-
-    def forward(self, x):
-        for i in range(len(self.layer_list)):
-            if self.layer_type_list[i] == 'lstm':
-                h, c = self.layer_state_list[i]
-                x, (h, c) = self.layer_list[i](x, (h, c))
-                h = h.detach()
-                c = c.detach()
-                self.layer_state_list[i] = (h, c)
-            elif self.layer_type_list[i] == 'srn':
-                h = self.layer_state_list[i]
-                x, h = self.layer_list[i](x, h)
-                h = h.detach()
-            elif self.layer_type_list[i] == 'gpt':
-                pass
-            else:
-                x = self.layer_list[i](x)
-        x = x[:, -1, :]
-        return x
 
     def test_sequence(self, x_list, y_list, criterion, batch_size=1):
         self.init_layer_states(batch_size)
