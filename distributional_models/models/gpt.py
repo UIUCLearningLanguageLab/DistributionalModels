@@ -31,10 +31,6 @@ class GPT(NeuralNetwork):
         self.set_device(device)
 
     def define_network(self):
-        # self.vocab_size = vocab_size
-        # self.embed_size = embed_size
-        # self.block_size = block_size
-
         self.layer_dict['token_embeddings_table'] = nn.Embedding(self.vocab_size, self.embedding_size)
         self.layer_dict['position_embeddings_table'] = nn.Embedding(self.block_size, self.embedding_size)
         self.layer_dict['combined_input_module'] = CombinedInput(self.layer_dict['token_embeddings_table'],
@@ -45,26 +41,21 @@ class GPT(NeuralNetwork):
         self.layer_dict['output'] = nn.Linear(self.hidden_size, self.vocab_size)
 
     def forward(self, x_window):
-
-        # [batch_size, block_size]
-        print("x_window shape:", x_window.shape)
-
-
         _, block_size = x_window.shape
         combined_input = self.layer_dict['combined_input_module'](x_window, block_size)
         attention_weighted_values, attention_weights = self.layer_dict['attention_weighted_values'](combined_input)
         h = self.layer_dict['hidden_layer'](attention_weighted_values)
         outputs = self.layer_dict['output'](h)  # (Batch*Time*vocab_size)
-        batch_size, T, C = outputs.shape
-        logits = outputs.view(batch_size * T, C)
-        print("outputs:", outputs.shape)
-        print("logits:", logits.shape)
+        # batch_size, T, C = outputs.shape
+        # logits = outputs.view(batch_size * T, C)
+        # print("outputs:", outputs.shape)
+        # print("logits:", logits.shape)
         #lstm_out = lstm_out[:, -1, :]
         # targets = targets.view(B * T)
         #
         # loss = functional.cross_entropy(logits, targets)
         # o_prob = torch.nn.functional.softmax(logits, dim=1)
-        return logits
+        return outputs
 
 
 class CombinedInput(nn.Module):
