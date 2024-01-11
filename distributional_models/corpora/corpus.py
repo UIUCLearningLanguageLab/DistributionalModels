@@ -288,34 +288,46 @@ class Corpus(Dataset):
     def create_batches(sequence_list, batch_size, sequence_length, pad_index):
         x_batches = []
         y_batches = []
+        y_window_batches = []
         current_batch_x = []
         current_batch_y = []
+        current_batch_y_window = []
 
         if sequence_length == 1:
             for i in range(len(sequence_list) - 1):
                 current_batch_x.append(sequence_list[i])
                 current_batch_y.append(sequence_list[i + 1])
+                current_batch_y_window.append(sequence_list[i + 1])
+
                 if len(current_batch_x) == batch_size:
                     x_batches.append(current_batch_x)
                     y_batches.append(current_batch_y)
+                    y_window_batches.append(current_batch_y)
                     current_batch_x = []
                     current_batch_y = []
+                    current_batch_y_window = []
         else:
             for sequence in sequence_list:
                 current_batch_x.append(sequence[:-1])  # Take all but the last element
                 current_batch_y.append(sequence[-1])   # Take the last element
+                current_batch_y_window.append(sequence[1:])
                 if len(current_batch_x) == batch_size:
                     x_batches.append(current_batch_x)
                     y_batches.append(current_batch_y)
+                    y_window_batches.append(current_batch_y_window)
                     current_batch_x = []
                     current_batch_y = []
+                    current_batch_y_window = []
 
-            # Pad the last batch if necessary
+            # Pad the last batch if necessary. this last bit is missing the completion for y_window_batches
             if current_batch_x:
                 while len(current_batch_x) < batch_size:
-                    current_batch_x.append([pad_index] * (len(sequence) - 1))
+                    current_batch_x.append([pad_index] * (sequence_length - 1))
                     current_batch_y.append(pad_index)
+                    current_batch_y_window.append([pad_index] * (sequence_length - 1))
+
                 x_batches.append(current_batch_x)
                 y_batches.append(current_batch_y)
+                y_window_batches.append(current_batch_y_window)
 
-        return x_batches, y_batches
+        return x_batches, y_batches, y_window_batches
