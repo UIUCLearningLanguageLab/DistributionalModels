@@ -20,6 +20,7 @@ class Categories(Dataset):
         self.category_instance_list_dict = None
         self.instance_category_dict = None
         self.instance_category_matrix = None
+        self.instance_instance_matrix = None
 
         self.instance_feature_matrix = None
         self.x_index_list = None
@@ -53,6 +54,7 @@ class Categories(Dataset):
         self.num_categories = len(self.category_list)
         self.category_index_dict = {}
         self.category_instance_list_dict = {}
+
         for i in range(self.num_categories):
             self.category_index_dict[self.category_list[i]] = i
             self.category_instance_list_dict[self.category_list[i]] = []
@@ -61,24 +63,26 @@ class Categories(Dataset):
         self.num_instances = len(self.instance_list)
 
         self.instance_category_matrix = np.zeros([self.num_instances, self.num_categories], int)
+        self.instance_instance_matrix = np.zeros([self.num_instances, self.num_instances], int)
         self.instance_index_dict = {}
         for i in range(self.num_instances):
             self.instance_index_dict[self.instance_list[i]] = i
-            instance = self.instance_list[i]
-            category = self.instance_category_dict[instance]
-            j = self.category_index_dict[category]
+            instance1 = self.instance_list[i]
+            category1 = self.instance_category_dict[instance1]
+            j = self.category_index_dict[category1]
             self.instance_category_matrix[i, j] = 1
-            self.category_instance_list_dict[category].append(instance)
+            self.category_instance_list_dict[category1].append(instance1)
+            for j in range(self.num_instances):
+                instance2 = self.instance_list[j]
+                category2 = self.instance_category_dict[instance2]
+                if category1 == category2:
+                    self.instance_instance_matrix[i, j] = 1
 
     def remove_instances(self, instance_list):
         for instance in instance_list:
-            if instance in self.instance_index_dict:
-                category = self.instance_category_dict[instance]
-                self.instance_list.remove(instance)
-                del self.instance_index_dict[instance]
-                del self.instance_category_dict[instance]
-                self.num_instances -= 1
-                self.category_instance_list_dict[category].remove(instance)
+            del self.instance_category_dict[instance]
+
+        self.create_from_instance_category_dict(self.instance_category_dict)
 
     def set_instance_feature_matrix(self, data_matrix, data_index_dict):
         #  embedding matrix vocab size x embedding size 8192x128

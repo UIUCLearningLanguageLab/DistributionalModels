@@ -148,3 +148,17 @@ class Childes(Corpus):
             random.shuffle(sorted_tuple_list)
 
         return sorted_tuple_list
+
+    def batch_docs_by_age(self, num_batches=10, order="age_ordered"):
+        if order == 'reversed':
+            self.document_list.reverse()
+        elif order == 'shuffled':
+            random.shuffle(self.document_list)
+        elif order == 'age_ordered':
+            pass
+        else:
+            raise ValueError(f"Unrecognized corpus document order {order}")
+
+        k, m = divmod(len(self.document_list), num_batches)
+        self.document_list = [
+            self.document_list[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(num_batches)]

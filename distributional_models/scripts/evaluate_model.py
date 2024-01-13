@@ -1,5 +1,6 @@
-from distributional_models.tasks.cohyponyms import Cohyponyms
+from distributional_models.tasks.cohyponyms2 import Cohyponyms
 from distributional_models.tasks.classifier import Classifier
+from distributional_models.tasks.generate import generate_sequence
 
 
 def evaluate_model(label, model, the_categories, corpus, train_params, training_took, loss_mean):
@@ -16,7 +17,7 @@ def evaluate_model(label, model, the_categories, corpus, train_params, training_
                                         similarity_metric=train_params['cohyponym_similarity_metric'],
                                         only_best_threshold=train_params['cohyponym_only_best_thresholds'])
 
-        output_string += f"  BA:{the_cohyponym_task.overall_target_mean:0.3f}"
+        output_string += f" BA:{the_cohyponym_task.balanced_accuracy_mean:0.3f}-R:{the_cohyponym_task.correlation:0.3f}"
         ba_took = the_cohyponym_task.took
     else:
         ba_took = 0
@@ -30,6 +31,14 @@ def evaluate_model(label, model, the_categories, corpus, train_params, training_
         classifier_took = the_classifier.took
     else:
         classifier_took = 0
+
+    if train_params['generate_sequence']:
+        generated_sequence = generate_sequence(model,
+                                               corpus,
+                                               train_params['prime_token_list'],
+                                               train_params['generate_sequence_length'],
+                                               train_params['generate_temperature'])
+        output_string += f'   "{generated_sequence}"'
 
     output_string += f"  Took:{training_took:0.2f}-{ba_took:0.2f}-{classifier_took:0.2f}"
     return output_string

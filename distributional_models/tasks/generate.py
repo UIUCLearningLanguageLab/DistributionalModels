@@ -2,28 +2,52 @@ import copy
 import torch
 
 
-def generate_sequence(model, prime_token_list=("look", "at"), sequence_length=10, temperature=0.8):
-    prime_token_list = list(prime_token_list)
+def generate_sequence(model, corpus, tokens=("look", "at"), sequence_length=10, temperature=0.8):
 
-    prime_id_list = []
-    all_tokens_in_vocab = True
-    for token in prime_token_list:
-        if token in model.vocab_index_dict:
-            prime_id_list.append(model.vocab_index_dict[token])
+    input_token_list = list(tokens)
+    final_token_list = copy.deepcopy(input_token_list)
+
+    input_index_list = []
+    for token in input_token_list:
+        if token in corpus.vocab_index_dict:
+            input_index_list.append(corpus.vocab_index_dict[token])
         else:
-            all_tokens_in_vocab = False
+            return f"Prime word {token} not in vocab"
 
-    if all_tokens_in_vocab and len(prime_id_list) > 0:
+    model.init_network(batch_size=1)
+    model.eval()
 
-        predicted_list = copy.deepcopy(prime_token_list)
-        model.init_layer_states()
-        model.eval()
+    output = None
+    for index in input_index_list:
+        input_tensor = torch.tensor([index]).unsqueeze(0).to(model.device)
+        output = model(input_tensor)
 
-        for i in range(len(prime_id_list)):
-            output = model.forward(prime_id_list[i])
+    if output is not None:
+        output_distribution = output.detach().view(-1).div(temperature).exp()
+        top_i = torch.multinomial(output_distribution, 1)[0]
+
+        final_token_list.append(corpus.vocab_list[top_i])
+
+        for i in range(sequence_length-1):
+            input_tensor = top_i.unsqueeze(0).unsqueeze(0).to(model.device)
+            output = model(input_tensor)
+            output_distribution = output.detach().view(-1).div(temperature).exp()
+            if torch.isnan(output_distribution).any() or torch.isinf(output_distribution).any():
+                print("NaN or Inf values in output_distribution")
+            try:
+                top_i = torch.multinomial(output_distribution, 1)[0]
+            except:
+                print(output_distribution)
+            final_token_list.append(corpus.vocab_list[top_i])
+
+    output_string = ' '.join(final_token_list)
+
+    return output_string
+
+
 
             # output_distribution = output.detach.view(-1).div(temperature).exp()
-            # top_i = torch.multinomial(output_distribution, 1)[0]
+            #
             # predicted_char = self.vocab_list[top_i]
             # predicted_list.append(predicted_char)
 
