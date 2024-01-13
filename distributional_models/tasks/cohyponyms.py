@@ -1,13 +1,16 @@
 from ..scripts.utils import round_and_check, create_similarity_matrix
 import numpy as np
 import pandas as pd
+import time
 
 
-class CohyponymTask:
+class Cohyponyms:
 
-    def __init__(self, categories, num_thresholds=11, only_best_threshold=False):
+    def __init__(self, categories, num_thresholds=11, only_best_threshold=False, similarity_metric='correlation'):
 
         self.categories = categories
+        self.num_thresholds = num_thresholds
+        self.similarity_metric = similarity_metric
 
         self.similarity_matrix = None
         self.num_thresholds = num_thresholds
@@ -25,18 +28,26 @@ class CohyponymTask:
         self.best_target_ba_df = None
         self.best_category_ba_df = None
         self.guess_accuracy_best_df = None
+        self.overall_target_mean = None
+        self.overall_category_mean = None
 
         self.threshold_list = np.linspace(-1, 1, self.num_thresholds)
 
-    def run_cohyponym_task(self, metric='corrcoef'):
+        self.took = None
+
+        self.run_cohyponym_task()
+
+    def run_cohyponym_task(self):
+        start_time = time.time()
+
         if self.categories.instance_feature_matrix is not None:
-            self.similarity_matrix = create_similarity_matrix(self.categories.instance_feature_matrix, metric)
+            self.similarity_matrix = create_similarity_matrix(self.categories.instance_feature_matrix,
+                                                              self.similarity_metric)
         else:
             raise ValueError("Categories object has no instance feature matrix")
-
         self.create_results_df()
-        overall_mean = self.compute_ba()
-        return overall_mean
+        self.compute_ba()
+        self.took = time.time() - start_time
 
     def create_results_df(self):
 
@@ -55,7 +66,7 @@ class CohyponymTask:
 
                 for k in range(self.categories.num_instances):
 
-                    if j < k:
+                    if j != k:
                         target2 = self.categories.instance_list[k]
                         category2 = self.categories.instance_category_dict[target2]
                         score = self.similarity_matrix[j, k]
@@ -82,7 +93,7 @@ class CohyponymTask:
                                 threshold_hit_list[i] += 1
                             else:
                                 sd_result = "cr"
-                                threshold_no_list[i] += 1
+                                threshold_cr_list[i] += 1
                         else:
                             correct = 0
                             if guess == 0:
@@ -170,8 +181,8 @@ class CohyponymTask:
             self.guess_accuracy_best_df = self.guess_accuracy_df[
                 self.guess_accuracy_df['threshold'] == self.best_category_ba_df['best_overall_threshold'].unique()[0]]
 
-        overall_mean = self.best_target_ba_df['ba'].mean()
-        return overall_mean
+        self.overall_target_mean = self.best_target_ba_df['ba'].mean()
+        self.overall_category_mean = self.best_category_ba_df['mean_ba'].mean()
 
     def save_results(self, path):
         self.best_category_ba_df.to_csv(path, index=False)

@@ -2,10 +2,9 @@ import copy
 import pickle
 import pandas as pd
 import torch
-import numpy as np
 from collections import Counter
 from torch.utils.data import Dataset
-
+import sys
 
 class Corpus(Dataset):
 
@@ -255,29 +254,13 @@ class Corpus(Dataset):
             return pickle.load(file)
 
     @staticmethod
-    def create_one_hot_batches(x_batches, vocab_size):
-        one_hot_x_batches = []
-        for x_batch in x_batches:
-            # Create a tensor to hold the one-hot encoded batch on CPU
-            one_hot_batch = torch.zeros(*x_batch.shape, vocab_size, dtype=torch.float32)
-
-            # Advanced indexing to set the corresponding one-hot indices
-            indices = torch.arange(x_batch.numel(), dtype=torch.long).unsqueeze(-1)
-            values = x_batch.view(-1, 1)
-            one_hot_batch.view(-1, vocab_size).scatter_(1, values, 1)
-
-            # Move the one-hot encoded batch to MPS device
-
-        return one_hot_x_batches
-
-    @staticmethod
     def create_sequence_lists(index_list, sequence_length, pad_index):
-        if sequence_length == 1:
+        if sequence_length == 2:
             # Each sequence is a single element from the index_list
             return [[index] for index in index_list]
         else:
             # Original logic for longer sequences
-            padded_list = [pad_index] * (sequence_length - 1) + index_list + [pad_index] * (sequence_length - 1)
+            padded_list = [pad_index] * (sequence_length - 2) + index_list + [pad_index] * (sequence_length - 2)
             sequence_lists = []
             for i in range(len(index_list) + 1):
                 sequence = padded_list[i:i + sequence_length]
@@ -309,7 +292,7 @@ class Corpus(Dataset):
         else:
             for sequence in sequence_list:
                 current_batch_x.append(sequence[:-1])  # Take all but the last element
-                current_batch_y.append(sequence[-1])   # Take the last element
+                current_batch_y.append([sequence[-1]])   # Take the last element
                 current_batch_y_window.append(sequence[1:])
                 if len(current_batch_x) == batch_size:
                     x_batches.append(current_batch_x)
@@ -322,12 +305,42 @@ class Corpus(Dataset):
             # Pad the last batch if necessary. this last bit is missing the completion for y_window_batches
             if current_batch_x:
                 while len(current_batch_x) < batch_size:
-                    current_batch_x.append([pad_index] * (sequence_length - 1))
-                    current_batch_y.append(pad_index)
-                    current_batch_y_window.append([pad_index] * (sequence_length - 1))
+                    current_batch_x.append([pad_index] * sequence_length)
+                    current_batch_y.append([pad_index])
+                    current_batch_y_window.append([pad_index] * sequence_length)
 
                 x_batches.append(current_batch_x)
                 y_batches.append(current_batch_y)
                 y_window_batches.append(current_batch_y_window)
+
+        return x_batches, y_batches, y_window_batches
+
+    def create_batched_sequence_lists(self, document_list, window_size, batch_size, sequence_length, device):
+        corpus_token_list = self.flatten_corpus_lists(document_list)
+        pad_index = 0
+
+        self.x_list, self.y_list, self.index_list = self.create_index_list(corpus_token_list,
+                                                                           self.vocab_index_dict,
+                                                                           self.unknown_token,
+                                                                           window_size=window_size)
+        sequence_list = self.create_sequence_lists(self.index_list, sequence_length+1, pad_index=pad_index)
+
+        # print("sequence_list", sequence_list)
+
+        x_batches, y_batches, y_window_batches = self.create_batches(sequence_list, batch_size, sequence_length,
+                                                                     pad_index)
+        #
+        # print()
+        # print("x_batches", x_batches)
+        # print()
+        # print("y_batches", y_batches)
+        # print()
+        # print("y_window_batches", y_window_batches)
+        # sys.exit()
+
+        x_batches = [torch.tensor(x_batch, dtype=torch.long).to(device) for x_batch in x_batches]
+        y_batches = [torch.tensor(y_batch, dtype=torch.long).to(device) for y_batch in y_batches]
+        y_window_batches = [torch.tensor(y_window_batch, dtype=torch.long).to(device) for y_window_batch in
+                            y_window_batches]
 
         return x_batches, y_batches, y_window_batches

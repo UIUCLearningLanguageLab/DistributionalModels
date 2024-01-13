@@ -22,6 +22,7 @@ class Categories(Dataset):
         self.instance_category_matrix = None
 
         self.instance_feature_matrix = None
+        self.x_index_list = None
         self.x_list = None
         self.y_list = None
 
@@ -29,7 +30,7 @@ class Categories(Dataset):
         return len(self.x_list)
 
     def __getitem__(self, idx):
-        return self.x_list[idx], self.y_list[idx]
+        return self.instance_list, self.x_list[idx], self.y_list[idx]
 
     def create_from_category_file(self, file_path):
 
@@ -82,12 +83,6 @@ class Categories(Dataset):
     def set_instance_feature_matrix(self, data_matrix, data_index_dict):
         #  embedding matrix vocab size x embedding size 8192x128
         #  num_instances x embedding size  700x128
-        '''
-        (512, 4096)
-        4096
-        716
-        (716, 4096)
-        '''
 
         self.instance_size = data_matrix.shape[1]
         self.instance_feature_matrix = np.zeros([self.num_instances, self.instance_size])
@@ -103,6 +98,7 @@ class Categories(Dataset):
 
     def create_xy_lists(self):
 
+        self.x_index_list = []
         self.x_list = []
         self.y_list = []
 
@@ -111,10 +107,11 @@ class Categories(Dataset):
             category = self.instance_category_dict[instance]
             category_index = self.category_index_dict[category]
             instance_data = self.instance_feature_matrix[i, :]
+            self.x_index_list.append(i)
             self.x_list.append(instance_data)
             self.y_list.append(category_index)
 
-    def prepare_data(self, test_split=0.0):
+    def create_train_test_datasets(self, test_split=0.0):
         # Shuffle the input_data
         dataset_size = self.num_instances
         indices = list(range(dataset_size))

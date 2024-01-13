@@ -35,7 +35,7 @@ def print_neighbhors_from_file():
 
 
 def create_similarity_matrix(embedding_matrix, metric:str):
-    if metric == "corrcoef":
+    if metric == "correlation":
         similarity_matrix = np.corrcoef(embedding_matrix)
     elif metric == "cosine":
         similarity_matrix = distance.squareform(distance.pdist(embedding_matrix, "cosine"))
