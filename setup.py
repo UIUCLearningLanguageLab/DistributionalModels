@@ -10,7 +10,7 @@ setup(
         'Intended Audience :: Science/Research'],
     python_requires='>=3.6.8',
     install_requires=['setuptools>=68.2.2',
-                      'torch~=>=2.1.0.dev20230330',
+                      'torch>=2.1.0.dev20230330',
                       'numpy>=1.24.1',
                       'pandas>=1.5.3',
                       'scipy>=1.10.1',
