@@ -14,6 +14,7 @@ class SRN(NeuralNetwork):
                  dropout_rate):
 
         super(SRN, self).__init__()
+        self.model_type = "srn"
         self.model_name = None
         self.vocab_size = vocab_size
         self.embedding_size = embedding_size

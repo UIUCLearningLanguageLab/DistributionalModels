@@ -3,72 +3,51 @@ import torch
 
 
 def generate_sequence(model, corpus, tokens=("look", "at"), sequence_length=10, temperature=0.8):
-
     input_token_list = list(tokens)
     final_token_list = copy.deepcopy(input_token_list)
 
-    input_index_list = []
-    for token in input_token_list:
-        if token in corpus.vocab_index_dict:
-            input_index_list.append(corpus.vocab_index_dict[token])
-        else:
-            return f"Prime word {token} not in vocab"
+    # Convert tokens to indices
+    input_index_list = [corpus.vocab_index_dict.get(token, -1) for token in input_token_list]
+    if -1 in input_index_list:
+        return "Prime word not in vocab"
 
-    model.init_network(batch_size=1)
+    # Check for model's sequence length attribute
+    max_seq_length = getattr(model, 'sequence_length', sequence_length)
+
+    if model.model_type in ['lstm', 'srn']:
+        model.init_network(batch_size=1)
+    else:
+        model.init_network()
     model.eval()
 
-    output = None
-    for index in input_index_list:
-        input_tensor = torch.tensor([index]).unsqueeze(0).to(model.device)
+    for _ in range(sequence_length - len(input_token_list)):
+        # Prepare the input tensor
+        input_tensor = torch.tensor([input_index_list[-max_seq_length:]]).to(model.device)
         output = model(input_tensor)
+        if model.model_type in ['transformer', 'mlp']:
+            last_output = output[0, -1, :]
+        else:
+            last_output = output
+        # # Generate next token
+        output_distribution = last_output.detach().view(-1).div(temperature).exp()
+        if torch.isnan(output_distribution).any() or torch.isinf(output_distribution).any():
+            print("NaN or Inf values in output_distribution")
+            break
 
-    if output is not None:
-        output_distribution = output.detach().view(-1).div(temperature).exp()
-        top_i = torch.multinomial(output_distribution, 1)[0]
+        try:
+            top_i = torch.multinomial(output_distribution, 1)[0].item()
+        except RuntimeError as e:
+            print("Error during sampling:", e)
+            break
+
+        # # Append the predicted index and corresponding token
+        input_index_list.append(top_i)
 
         final_token_list.append(corpus.vocab_list[top_i])
-
-        for i in range(sequence_length-1):
-            input_tensor = top_i.unsqueeze(0).unsqueeze(0).to(model.device)
-            output = model(input_tensor)
-            output_distribution = output.detach().view(-1).div(temperature).exp()
-            if torch.isnan(output_distribution).any() or torch.isinf(output_distribution).any():
-                print("NaN or Inf values in output_distribution")
-            try:
-                top_i = torch.multinomial(output_distribution, 1)[0]
-            except:
-                print(output_distribution)
-            final_token_list.append(corpus.vocab_list[top_i])
+        #
+        # # Ensure the sequence does not exceed the maximum length
+        # if len(input_index_list) > max_seq_length:
+        #     input_index_list.pop(0)
 
     output_string = ' '.join(final_token_list)
-
     return output_string
-
-
-
-            # output_distribution = output.detach.view(-1).div(temperature).exp()
-            #
-            # predicted_char = self.vocab_list[top_i]
-            # predicted_list.append(predicted_char)
-
-        # for i in range(sequence_length):
-        #
-        #
-        #
-        #
-		# for i in range(len(prime_id_tensor_list) - 1):
-		# 	x = prime_id_tensor_list[i].unsqueeze(0)
-		# 	output, hidden_state_list = self.forward(x.to(self.device), hidden_state_list)
-		# x = prime_id_tensor_list[-1].unsqueeze(0)
-		# for i in range(self.params.PREDICT_LENGTH):
-		# 	output, hidden_state_list = self.forward(x.to(self.device), hidden_state_list)
-		# 	output_distribution = output.data.view(-1).div(self.params.TEMPERATURE).exp()
-		# 	top_i = torch.multinomial(output_distribution, 1)[0]
-		# 	predicted_char = self.vocab_list[top_i]
-		# 	predicted_list.append(predicted_char)
-		# 	x = torch.tensor([top_i])
-		# if unit_type == "words":
-		# 	predicted_string = " ".join(predicted_list)
-		# else:
-		# 	predicted_string = "".join(predicted_list)
-		# return predicted_string

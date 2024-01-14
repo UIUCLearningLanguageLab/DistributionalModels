@@ -14,6 +14,7 @@ class MLP(NeuralNetwork):
                  dropout_rate):
 
         super(MLP, self).__init__()
+        self.model_type = "mlp"
         self.model_name = None
         self.vocab_size = vocab_size
         self.embedding_size = embedding_size

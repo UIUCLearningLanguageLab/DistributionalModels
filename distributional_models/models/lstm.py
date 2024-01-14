@@ -14,6 +14,7 @@ class LSTM(NeuralNetwork):
                  dropout_rate):
 
         super(LSTM, self).__init__()
+        self.model_type = "lstm"
         self.model_name = None
         self.vocab_size = vocab_size
         self.embedding_size = embedding_size

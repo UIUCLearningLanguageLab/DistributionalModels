@@ -18,6 +18,7 @@ class Transformer(NeuralNetwork):
                  device):
 
         super(Transformer, self).__init__()
+        self.model_type = "transformer"
         self.model_name = None
         self.vocab_size = vocab_size
         self.sequence_length = sequence_length
@@ -92,8 +93,6 @@ class Transformer(NeuralNetwork):
             else:
                 B, T, C = output.shape
                 output = output.view(B * T, C)
-
-            #loss = self.criterion(output, y_batch.view(-1))
 
             if train_params['l1_lambda']:
                 l1_norm = sum(p.abs().sum() for p in self.parameters())
