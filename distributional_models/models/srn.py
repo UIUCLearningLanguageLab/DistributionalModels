@@ -7,16 +7,15 @@ from datetime import datetime
 
 class SRN(NeuralNetwork):
     def __init__(self,
-                 vocab_size,
+                 vocab_list,
                  embedding_size,
                  hidden_size,
                  weight_init,
                  dropout_rate):
 
-        super(SRN, self).__init__()
+        super(SRN, self).__init__(vocab_list)
         self.model_type = "srn"
         self.model_name = None
-        self.vocab_size = vocab_size
         self.embedding_size = embedding_size
         self.hidden_size = hidden_size
         self.weight_init = weight_init

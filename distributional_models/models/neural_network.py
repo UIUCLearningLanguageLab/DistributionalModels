@@ -1,19 +1,32 @@
 import os
+import gzip
 import torch
 import torch.nn as nn
 import torch.optim as optim
 
 
 class NeuralNetwork(nn.Module):
-    def __init__(self):
+    def __init__(self, vocab_list):
 
         super(NeuralNetwork, self).__init__()
+        self.vocab_list = vocab_list
         self.layer_dict = torch.nn.ModuleDict()
         self.state_dict = None
         self.device = None
         self.criterion = None
         self.optimizer = None
         self.model_name = None
+
+        self.vocab_list = None
+        self.vocab_index_dict = None
+        self.vocab_size = None
+
+        self.init_vocab(vocab_list)
+
+    def init_vocab(self, vocab_list):
+        self.vocab_list = vocab_list
+        self.vocab_size = len(vocab_list)
+        self.vocab_index_dict = {value: index for index, value in enumerate(self.vocab_list)}
 
     def set_device(self, device=None):
         self.device = device
@@ -92,7 +105,9 @@ class NeuralNetwork(nn.Module):
         """
         self.create_model_directory(path)
         self.create_model_directory(os.path.join(path, self.model_name))
-        torch.save(self, os.path.join(path, self.model_name, file_name))
+        file_path = os.path.join(path, self.model_name, file_name)
+        with gzip.open(file_path, 'wb') as f:
+            torch.save(self, f)
 
     @classmethod
     def load_model(cls, filepath, device=torch.device('cpu')):

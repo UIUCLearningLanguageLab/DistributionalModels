@@ -186,11 +186,13 @@ class XAYBZ(corpus.Corpus):
         self.omitted_ab_pair_list = None
 
         self.word_category_dict = None
+        self.category_index_dict = None
 
         self.check_parameters()
         self.create_corpus_name()
         self.create_vocabulary()
         self.create_word_pair_list()
+        self.create_word_category_dict()
 
         self.create_documents()
 
@@ -307,7 +309,6 @@ class XAYBZ(corpus.Corpus):
         # self.unknown_token = '<unk>'
         self.add_words_to_vocab(['.'])
         for i in range(self.num_ab_categories):
-
             current_category = str(i + 1)
 
             category_label = "A" + current_category + "_"
@@ -418,11 +419,11 @@ class XAYBZ(corpus.Corpus):
 
         for i in range(len(full_document_list)):
             new_document = []
+
             current_document_template = copy.deepcopy(full_document_list[i])
             num_sentences = len(current_document_template)
 
             if self.sentence_repetitions_per_document > 0:
-
                 if self.sentence_sequence_rule == "massed" or self.sentence_sequence_rule == "random":
                     for j in range(num_sentences):
                         current_ab_pair = current_document_template[j]
@@ -474,7 +475,6 @@ class XAYBZ(corpus.Corpus):
         for document in self.generated_document_list:
             self.add_document(document, tokenized=True, document_info_dict=None)
 
-
     def create_sentence(self, ab_pair, current_y_list=None):
         sentence = []
         num_x = random.randint(self.min_x_per_sentence, self.max_x_per_sentence)
@@ -504,14 +504,79 @@ class XAYBZ(corpus.Corpus):
             sentence.append(".")
         return sentence
 
-    def create_word_category_dict(self):
-        temp_word_category_dict = {}
-        for word in self.generated_vocab_index_dict:
-            if word != '<unk>':
-                if word[0] == "A" or word[0] == 'B':
-                    category = word[:2]
-                # else:
-                #     category = word[0]
-                    temp_word_category_dict[word] = category
+    def assign_category_index_to_token(self, sequence):
 
-        self.word_category_dict = {word: category for word, category in temp_word_category_dict.items()}
+        if self.vocab_index_dict is None:
+            raise Exception("ERROR: Vocab index dict does not exist")
+
+        self.category_index_dict = {'Period': 0,
+                                    'Present A': 1,
+                                    'Omitted A': 2,
+                                    'Legal A': 3,
+                                    'Illegal A': 4,
+                                    'Present B': 5,
+                                    'Omitted B': 6,
+                                    'Legal B': 7,
+                                    'Illegal B': 8,
+                                    'x': 9,
+                                    'y': 10,
+                                    'z': 11,
+                                    'Other': 12}
+
+        sequence_category_list = []
+        for token in sequence:
+            if token[0] == 'A':
+                A_word = token.split('_')
+            elif token[0] == 'B':
+                B_word = token.split('_')
+            token_category_list = []
+            for word, index in self.vocab_index_dict.items():
+                current_word = word.split('_')
+                if current_word[0] == '.':
+                    token_category_list.append('Period')
+                elif current_word[0][0] == 'A':
+                    if current_word == A_word:
+                        token_category_list.append('Present A')
+                    elif current_word[0][1:] == B_word[0][1:]:
+                        if current_word[1] == B_word[1]:
+                            token_category_list.append('Omitted A')
+                        else:
+                            token_category_list.append('Legal A')
+                    else:
+                        token_category_list.append('Illegal A')
+                elif current_word[0][0] == 'B':
+                    if current_word == B_word:
+                        token_category_list.append('Present B')
+                    else:
+                        if current_word[0][1:] == A_word[0][1:]:
+                            if current_word[1] == A_word[1]:
+                                token_category_list.append('Omitted B')
+                            else:
+                                token_category_list.append('Legal B')
+                        else:
+                            token_category_list.append('Illegal B')
+                elif current_word[0] == 'x':
+                    token_category_list.append('x')
+                elif current_word[0] == 'y':
+                    token_category_list.append('y')
+                elif current_word[0] == 'z':
+                    token_category_list.append('z')
+                else:
+                    token_category_list.append('Other')
+            sequence_category_list.append(token_category_list)
+
+        return sequence_category_list
+
+    def create_word_category_dict(self):
+        self.word_category_dict = {}
+        for word in self.generated_vocab_index_dict:
+            if word[0] == "A" or word[0] == 'B':
+                category = word.split('_')[0]
+            elif word[0] == 'x' or 'y' or 'z':
+                category = word[0]
+            elif word == '.':
+                category = '.'
+            else:
+                category = 'OTHER'
+            self.word_category_dict[word] = category
+

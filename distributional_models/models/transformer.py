@@ -8,7 +8,7 @@ from datetime import datetime
 
 class Transformer(NeuralNetwork):
     def __init__(self,
-                 vocab_size,
+                 vocab_list,
                  sequence_length,
                  embedding_size,
                  num_heads,
@@ -17,10 +17,9 @@ class Transformer(NeuralNetwork):
                  weight_init,
                  device):
 
-        super(Transformer, self).__init__()
+        super(Transformer, self).__init__(vocab_list)
         self.model_type = "transformer"
         self.model_name = None
-        self.vocab_size = vocab_size
         self.sequence_length = sequence_length
         self.embedding_size = embedding_size
         self.num_heads = num_heads
