@@ -97,7 +97,6 @@ class LSTM(NeuralNetwork):
         return loss_mean, took
 
     def forward(self, x):
-
         embedding_out = self.layer_dict['embedding'](x)
         # LSTM layer
         lstm_out, self.state_dict['hidden'] = self.layer_dict['lstm'](embedding_out, self.state_dict['hidden'])

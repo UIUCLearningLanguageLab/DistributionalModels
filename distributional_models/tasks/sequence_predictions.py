@@ -1,6 +1,7 @@
 import numpy as np
 import time
 import torch.nn.functional as F
+import torch
 
 
 class SequencePredictions:
@@ -46,10 +47,13 @@ class SequencePredictions:
             self.num_token_categories = len(self.token_category_list)
 
         if self.sequence_target_label_list:
-            self.target_category_list = list({item for sublist in self.sequence_target_label_list for item in sublist})
+            self.target_category_list = list({item for sublist1 in self.sequence_target_label_list
+                                              for sublist2 in sublist1 for item in sublist2})
             self.target_category_index_dict = {value: index for index, value in enumerate(self.target_category_list)}
             self.num_target_categories = len(self.target_category_list)
-
+        print(f'Test Sequence: {self.sequence_list}')
+        print(f'Model Vocab index dict: {self.model.vocab_index_dict}')
+        print(f'token category: {self.sequence_target_label_list[0][0]}')
         for i, sequence in enumerate(self.sequence_list):
             token_vocab_index_list = []
             token_category_index_list = []
@@ -68,7 +72,7 @@ class SequencePredictions:
                     else:
                         output_category_index = k
                     output_category_index_list.append(output_category_index)
-                self.target_category_index_list.append(output_category_index_list)
+                target_category_index_list.append(output_category_index_list)
 
             self.token_vocab_index_lists.append(token_vocab_index_list)
             self.token_category_index_lists.append(token_category_index_list)
@@ -112,13 +116,16 @@ class SequencePredictions:
         '''
 
         self.model.eval()
+        self.model.init_network(1)
         for i, sequence in enumerate(self.sequence_list):
             for j, token in enumerate(sequence):
                 token_vocab_index = self.token_vocab_index_lists[i][j]
                 token_category_index = self.token_category_index_lists[i][j]
                 target_category_index_array = self.target_category_index_lists[i][j]
-                raw_outputs = self.model([token_vocab_index]).detach()
-                probs = F.softmax(raw_outputs).numpy()
+                raw_outputs = self.model(torch.tensor([[token_vocab_index]])).detach()
+                self.model.state_dict['hidden'] = (self.model.state_dict['hidden'][0].detach(),
+                                                   self.model.state_dict['hidden'][1].detach())
+                probs = F.softmax(raw_outputs, dim=1).squeeze().numpy()
 
                 if self.sequence_target_label_list:
                     for k, prob in enumerate(probs):
