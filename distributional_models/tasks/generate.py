@@ -2,12 +2,12 @@ import copy
 import torch
 
 
-def generate_sequence(model, corpus, tokens=("look", "at"), sequence_length=10, temperature=0.8):
+def generate_sequence(model, tokens=("look", "at"), sequence_length=10, temperature=0.8):
     input_token_list = list(tokens)
     final_token_list = copy.deepcopy(input_token_list)
 
     # Convert tokens to indices
-    input_index_list = [corpus.vocab_index_dict.get(token, -1) for token in input_token_list]
+    input_index_list = [model.vocab_index_dict.get(token, -1) for token in input_token_list]
     if -1 in input_index_list:
         return "Prime word not in vocab"
 
@@ -43,7 +43,7 @@ def generate_sequence(model, corpus, tokens=("look", "at"), sequence_length=10, 
         # # Append the predicted index and corresponding token
         input_index_list.append(top_i)
 
-        final_token_list.append(corpus.vocab_list[top_i])
+        final_token_list.append(model.vocab_list[top_i])
         #
         # # Ensure the sequence does not exceed the maximum length
         # if len(input_index_list) > max_seq_length:

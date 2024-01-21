@@ -96,6 +96,30 @@ class LSTM(NeuralNetwork):
 
         return loss_mean, took
 
+    def test_sequence(self, corpus, sequence, train_params):
+        self.eval()
+        batch_size = 1
+        sequence_length = 1
+        corpus_window_size = 1
+        x_batches, \
+            single_y_batches, \
+            y_window_batches = corpus.create_batched_sequence_lists(sequence,
+                                                                    corpus_window_size,
+                                                                    batch_size,
+                                                                    sequence_length,
+                                                                    self.device)
+        y_batches = single_y_batches
+        self.init_network(train_params['batch_size'])
+
+        for batch_num, (x_batch, y_batch) in enumerate(zip(x_batches, y_batches)):
+
+            output = self(x_batch)
+
+            self.state_dict['hidden'] = (self.state_dict['hidden'][0].detach(),
+                                         self.state_dict['hidden'][1].detach())
+
+        return output
+
     def forward(self, x):
         embedding_out = self.layer_dict['embedding'](x)
         # LSTM layer

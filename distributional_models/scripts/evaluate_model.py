@@ -39,8 +39,12 @@ def evaluate_model(label, model, corpus, train_params, training_took, loss_mean,
     if 'predict_sequences' in train_params:
         if train_params['predict_sequences']:
             sequence_target_label_list = corpus.assign_category_index_to_token(test_sequence_list)
-            print(sequence_target_label_list)
-            the_sequence_predictions = SequencePredictions(model, test_sequence_list, sequence_target_label_list)
+            print("corpus target_category_index dict", corpus.target_category_index_dict)
+            the_sequence_predictions = SequencePredictions(model,
+                                                           test_sequence_list,
+                                                           sequence_target_label_list=sequence_target_label_list,
+                                                           token_category_dict=corpus.word_category_dict,
+                                                           target_category_index_dict=corpus.target_category_index_dict)
             evaluation_dict['sequence_predictions'] = the_sequence_predictions
             output_string += f" SeqPred:{the_sequence_predictions.sequence_prediction_accuracy_mean:0.3f}"
             took_string += f"-{the_sequence_predictions.took:0.2f}"

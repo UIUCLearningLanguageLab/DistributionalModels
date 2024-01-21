@@ -186,13 +186,12 @@ class XAYBZ(corpus.Corpus):
         self.omitted_ab_pair_list = None
 
         self.word_category_dict = None
-        self.category_index_dict = None
+        self.target_category_index_dict = None
 
         self.check_parameters()
         self.create_corpus_name()
         self.create_vocabulary()
         self.create_word_pair_list()
-        self.create_word_category_dict()
 
         self.create_documents()
 
@@ -504,83 +503,96 @@ class XAYBZ(corpus.Corpus):
             sentence.append(".")
         return sentence
 
-    def assign_category_index_to_token(self, sequences):
+    def assign_category_index_to_token(self, document_list):
+
+        # list of documents, which are lists of sequences, which are lists of tokens
+        # [[[A11, y1, B12, .], [A11, y2, B12, .]]]
+        # [[[[], y1, B12, .], [A11, y2, B12, .]]]
 
         if self.vocab_index_dict is None:
             raise Exception("ERROR: Vocab index dict does not exist")
 
-        self.category_index_dict = {'Period': 0,
-                                    'Present A': 1,
-                                    'Omitted A': 2,
-                                    'Legal A': 3,
-                                    'Illegal A': 4,
-                                    'Present B': 5,
-                                    'Omitted B': 6,
-                                    'Legal B': 7,
-                                    'Illegal B': 8,
-                                    'x': 9,
-                                    'y': 10,
-                                    'z': 11,
-                                    'Other': 12}
-        sequences_category_list = []
-        for sequence in sequences:
-            sequence_category_list = []
-            A_word = []
-            B_word = []
-            for token in sequence:
-                if token[0] == 'A':
-                    A_word = token.split('_')
-                elif token[0] == 'B':
-                    B_word = token.split('_')
-            for token in sequence:
-                token_category_list = []
-                for word, index in self.vocab_index_dict.items():
-                    current_word = word.split('_')
-                    if current_word[0] == '.':
-                        token_category_list.append('Period')
-                    elif current_word[0][0] == 'A':
-                        if current_word == A_word:
-                            token_category_list.append('Present A')
-                        elif current_word[0][1:] == B_word[0][1:]:
-                            if current_word[1] == B_word[1]:
-                                token_category_list.append('Omitted A')
-                            else:
-                                token_category_list.append('Legal A')
-                        else:
-                            token_category_list.append('Illegal A')
-                    elif current_word[0][0] == 'B':
-                        if current_word == B_word:
-                            token_category_list.append('Present B')
-                        else:
-                            if current_word[0][1:] == A_word[0][1:]:
-                                if current_word[1] == A_word[1]:
-                                    token_category_list.append('Omitted B')
-                                else:
-                                    token_category_list.append('Legal B')
-                            else:
-                                token_category_list.append('Illegal B')
-                    elif current_word[0][0]  == 'x':
-                        token_category_list.append('x')
-                    elif current_word[0][0] == 'y':
-                        token_category_list.append('y')
-                    elif current_word[0][0]  == 'z':
-                        token_category_list.append('z')
-                    else:
-                        token_category_list.append('Other')
-                sequence_category_list.append(token_category_list)
-            sequences_category_list.append(sequence_category_list)
-        return sequences_category_list
+        self.target_category_index_dict = {'Period': 0,
+                                           'Present A': 1,
+                                           'Omitted A': 2,
+                                           'Legal A': 3,
+                                           'Illegal A': 4,
+                                           'Present B': 5,
+                                           'Omitted B': 6,
+                                           'Legal B': 7,
+                                           'Illegal B': 8,
+                                           'x': 9,
+                                           'y': 10,
+                                           'z': 11,
+                                           'Other': 12}
 
-    def create_word_category_dict(self):
-        self.word_category_dict = {}
-        for word in self.generated_vocab_index_dict:
+        target_label_lists = copy.deepcopy(document_list)
+
+        for i, document in enumerate(document_list):
+            for j, sequence in enumerate(document):
+                A_word = []
+                B_word = []
+                for token in sequence:
+                    if token[0] == 'A':
+                        A_word = token.split('_')
+                    elif token[0] == 'B':
+                        B_word = token.split('_')
+                for k, token in enumerate(sequence):
+                    token_category_list = []
+                    for word, index in self.vocab_index_dict.items():
+                        current_word = word.split('_')
+                        if current_word[0] == '.':
+                            token_category_list.append('Period')
+                        elif current_word[0][0] == 'A':
+                            if current_word == A_word:
+                                token_category_list.append('Present A')
+                            elif current_word[0][1:] == B_word[0][1:]:
+                                if current_word[1] == B_word[1]:
+                                    token_category_list.append('Omitted A')
+                                else:
+                                    token_category_list.append('Legal A')
+                            else:
+                                token_category_list.append('Illegal A')
+                        elif current_word[0][0] == 'B':
+                            if current_word == B_word:
+                                token_category_list.append('Present B')
+                            else:
+                                if current_word[0][1:] == A_word[0][1:]:
+                                    if current_word[1] == A_word[1]:
+                                        token_category_list.append('Omitted B')
+                                    else:
+                                        token_category_list.append('Legal B')
+                                else:
+                                    token_category_list.append('Illegal B')
+                        elif current_word[0][0]  == 'x':
+                            token_category_list.append('x')
+                        elif current_word[0][0] == 'y':
+                            token_category_list.append('y')
+                        elif current_word[0][0]  == 'z':
+                            token_category_list.append('z')
+                        else:
+                            token_category_list.append('Other')
+
+                        target_label_lists[i][j][k] = token_category_list
+        return target_label_lists
+
+    @staticmethod
+    def create_word_category_dict(vocab_index_dict):
+        word_category_dict = {}
+        for word, index in vocab_index_dict.items():
             if word[0] == "A" or word[0] == 'B':
                 category = word.split('_')[0]
-            elif word[0] == 'x' or 'y' or 'z':
-                category = word[0]
             elif word == '.':
                 category = '.'
+            elif word[0] == 'x':
+                category = word[0]
+            elif word[0] == 'y':
+                category = word[0]
+            elif word[0] == 'z':
+                category = word[0]
             else:
                 category = 'OTHER'
-            self.word_category_dict[word] = category
+            word_category_dict[word] = category
+        return word_category_dict
+
 
