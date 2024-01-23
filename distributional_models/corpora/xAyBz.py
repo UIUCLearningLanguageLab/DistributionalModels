@@ -186,6 +186,7 @@ class XAYBZ(corpus.Corpus):
         self.omitted_ab_pair_list = None
 
         self.word_category_dict = None
+        self.token_category_freq_dict = None
         self.target_category_index_dict = None
 
         self.check_parameters()
@@ -512,19 +513,19 @@ class XAYBZ(corpus.Corpus):
         if self.vocab_index_dict is None:
             raise Exception("ERROR: Vocab index dict does not exist")
 
-        self.target_category_index_dict = {'Period': 0,
-                                           'Present A': 1,
-                                           'Omitted A': 2,
-                                           'Legal A': 3,
-                                           'Illegal A': 4,
-                                           'Present B': 5,
-                                           'Omitted B': 6,
-                                           'Legal B': 7,
-                                           'Illegal B': 8,
-                                           'x': 9,
-                                           'y': 10,
-                                           'z': 11,
-                                           'Other': 12}
+        # self.target_category_index_dict = {'Period': 0,
+        #                                    'Present A': 1,
+        #                                    'Omitted A': 2,
+        #                                    'Legal A': 3,
+        #                                    'Illegal A': 4,
+        #                                    'Present B': 5,
+        #                                    'Omitted B': 6,
+        #                                    'Legal B': 7,
+        #                                    'Illegal B': 8,
+        #                                    'x': 9,
+        #                                    'y': 10,
+        #                                    'z': 11,
+        #                                    'Other': 12}
 
         target_label_lists = copy.deepcopy(document_list)
 
