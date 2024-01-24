@@ -504,28 +504,10 @@ class XAYBZ(corpus.Corpus):
             sentence.append(".")
         return sentence
 
-    def assign_category_index_to_token(self, document_list):
-
-        # list of documents, which are lists of sequences, which are lists of tokens
-        # [[[A11, y1, B12, .], [A11, y2, B12, .]]]
-        # [[[[], y1, B12, .], [A11, y2, B12, .]]]
+    def assign_category_to_token(self, document_list):
 
         if self.vocab_index_dict is None:
             raise Exception("ERROR: Vocab index dict does not exist")
-
-        # self.target_category_index_dict = {'Period': 0,
-        #                                    'Present A': 1,
-        #                                    'Omitted A': 2,
-        #                                    'Legal A': 3,
-        #                                    'Illegal A': 4,
-        #                                    'Present B': 5,
-        #                                    'Omitted B': 6,
-        #                                    'Legal B': 7,
-        #                                    'Illegal B': 8,
-        #                                    'x': 9,
-        #                                    'y': 10,
-        #                                    'z': 11,
-        #                                    'Other': 12}
 
         target_label_lists = copy.deepcopy(document_list)
 
@@ -543,33 +525,33 @@ class XAYBZ(corpus.Corpus):
                     for word, index in self.vocab_index_dict.items():
                         current_word = word.split('_')
                         if current_word[0] == '.':
-                            token_category_list.append('Period')
+                            token_category_list.append('.')
                         elif current_word[0][0] == 'A':
                             if current_word == A_word:
-                                token_category_list.append('Present A')
+                                token_category_list.append('A_Present')
                             elif current_word[0][1:] == B_word[0][1:]:
                                 if current_word[1] == B_word[1]:
-                                    token_category_list.append('Omitted A')
+                                    token_category_list.append('A_Omitted')
                                 else:
-                                    token_category_list.append('Legal A')
+                                    token_category_list.append('A_Legal')
                             else:
-                                token_category_list.append('Illegal A')
+                                token_category_list.append('A_Illegal')
                         elif current_word[0][0] == 'B':
                             if current_word == B_word:
-                                token_category_list.append('Present B')
+                                token_category_list.append('B_Present')
                             else:
                                 if current_word[0][1:] == A_word[0][1:]:
                                     if current_word[1] == A_word[1]:
-                                        token_category_list.append('Omitted B')
+                                        token_category_list.append('B_Omitted')
                                     else:
-                                        token_category_list.append('Legal B')
+                                        token_category_list.append('B_Legal')
                                 else:
-                                    token_category_list.append('Illegal B')
-                        elif current_word[0][0]  == 'x':
+                                    token_category_list.append('B_Illegal')
+                        elif current_word[0][0] == 'x':
                             token_category_list.append('x')
                         elif current_word[0][0] == 'y':
                             token_category_list.append('y')
-                        elif current_word[0][0]  == 'z':
+                        elif current_word[0][0] == 'z':
                             token_category_list.append('z')
                         else:
                             token_category_list.append('Other')
@@ -592,7 +574,7 @@ class XAYBZ(corpus.Corpus):
             elif word[0] == 'z':
                 category = word[0]
             else:
-                category = 'OTHER'
+                category = 'Other'
             word_category_dict[word] = category
         return word_category_dict
 

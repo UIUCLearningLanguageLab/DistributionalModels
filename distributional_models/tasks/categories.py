@@ -6,11 +6,14 @@ from torch.utils.data import Dataset, random_split
 
 class Categories(Dataset):
 
-    def __init__(self):
+    def __init__(self, instance_category_dict=None, instance_category_file_path=None):
 
         self.category_list = None
         self.category_index_dict = None
+        self.instance_category_dict = instance_category_dict
+        self.instance_category_file_path = instance_category_file_path
         self.num_categories = None
+        self.instance_category_index_dict = None
 
         self.instance_list = None
         self.instance_index_dict = None
@@ -18,14 +21,25 @@ class Categories(Dataset):
         self.instance_size = None  # the size of the feature vector, embedding vector
 
         self.category_instance_list_dict = None
-        self.instance_category_dict = None
         self.instance_category_matrix = None
         self.instance_instance_matrix = None
 
+        self.sequence_target_category_list = None
+        self.target_category_list = None
+        self.target_category_index_dict = None
+        self.num_target_categories = None
+
         self.instance_feature_matrix = None
         self.x_index_list = None
-        self.x_list = None
-        self.y_list = None
+        self.x_list = []
+        self.y_list = []
+
+        if self.instance_category_dict is not None:
+            self.create_from_instance_category_dict()
+        elif self.instance_category_file_path is not None:
+            self.create_from_category_file()
+        else:
+            raise Exception("Must provide either an instance_category_dict or a instance_category_file_path")
 
     def __len__(self):
         return len(self.x_list)
@@ -33,30 +47,34 @@ class Categories(Dataset):
     def __getitem__(self, idx):
         return self.instance_list, self.x_list[idx], self.y_list[idx]
 
-    def create_from_category_file(self, file_path):
+    def create_from_category_file(self):
 
-        instance_category_dict = {}
+        self.instance_category_dict = {}
 
-        with open(file_path, encoding='utf-8-sig') as file:
+        with open(self.instance_category_file_path, encoding='utf-8-sig') as file:
             reader = csv.reader(file)
             for row in reader:
                 key = row[0]
-                if key in instance_category_dict:
+                if key in self.instance_category_dict:
                     raise ValueError(f"Duplicate instance detected: {key}")
-                instance_category_dict[key] = row[1]
+                self.instance_category_dict[key] = row[1]
 
-        self.create_from_instance_category_dict(instance_category_dict)
+        self.create_from_instance_category_dict()
 
-    def create_from_instance_category_dict(self, instance_category_dict):
-        self.instance_category_dict = instance_category_dict
-
-        self.category_list = list(set(self.instance_category_dict.values()))
-        self.num_categories = len(self.category_list)
+    def create_from_instance_category_dict(self):
         self.category_index_dict = {}
+        self.category_list = []
+        self.num_categories = 0
+        for instance in self.instance_category_dict:
+            category = self.instance_category_dict[instance]
+            if category not in self.category_index_dict:
+                self.category_index_dict[category] = self.num_categories
+                self.num_categories += 1
+                self.category_list.append(category)
+
         self.category_instance_list_dict = {}
 
         for i in range(self.num_categories):
-            self.category_index_dict[self.category_list[i]] = i
             self.category_instance_list_dict[self.category_list[i]] = []
 
         self.instance_list = list(self.instance_category_dict.keys())
@@ -65,6 +83,8 @@ class Categories(Dataset):
         self.instance_category_matrix = np.zeros([self.num_instances, self.num_categories], int)
         self.instance_instance_matrix = np.zeros([self.num_instances, self.num_instances], int)
         self.instance_index_dict = {}
+        self.instance_category_index_dict = {}
+
         for i in range(self.num_instances):
             self.instance_index_dict[self.instance_list[i]] = i
             instance1 = self.instance_list[i]
@@ -72,7 +92,11 @@ class Categories(Dataset):
             j = self.category_index_dict[category1]
             self.instance_category_matrix[i, j] = 1
             self.category_instance_list_dict[category1].append(instance1)
+
+            self.instance_category_index_dict[instance1] = j
+
             for j in range(self.num_instances):
+
                 instance2 = self.instance_list[j]
                 category2 = self.instance_category_dict[instance2]
                 if category1 == category2:
@@ -81,8 +105,7 @@ class Categories(Dataset):
     def remove_instances(self, instance_list):
         for instance in instance_list:
             del self.instance_category_dict[instance]
-
-        self.create_from_instance_category_dict(self.instance_category_dict)
+        self.create_from_instance_category_dict()
 
     def set_instance_feature_matrix(self, data_matrix, data_index_dict):
         #  embedding matrix vocab size x embedding size 8192x128
@@ -132,3 +155,5 @@ class Categories(Dataset):
         train_dataset, test_dataset = random_split(all_shuffled_data, [train_size, test_size])
 
         return train_dataset, test_dataset
+
+

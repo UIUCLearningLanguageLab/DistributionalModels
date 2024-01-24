@@ -1,7 +1,9 @@
+import copy
 import time
 import torch
 import torch.nn as nn
 from .neural_network import NeuralNetwork
+import torch.nn.functional as F
 from datetime import datetime
 
 
@@ -96,29 +98,24 @@ class LSTM(NeuralNetwork):
 
         return loss_mean, took
 
-    def test_sequence(self, corpus, sequence, train_params):
+    def test_sequence(self, sequence, softmax=True):
         self.eval()
-        batch_size = 1
-        sequence_length = 1
-        corpus_window_size = 1
-        x_batches, \
-            single_y_batches, \
-            y_window_batches = corpus.create_batched_sequence_lists(sequence,
-                                                                    corpus_window_size,
-                                                                    batch_size,
-                                                                    sequence_length,
-                                                                    self.device)
-        y_batches = single_y_batches
-        self.init_network(train_params['batch_size'])
+        self.init_network(1)
 
-        for batch_num, (x_batch, y_batch) in enumerate(zip(x_batches, y_batches)):
+        output_list = []
+        hidden_state_list = []
 
-            output = self(x_batch)
-
+        for token in sequence:
+            outputs = self(torch.tensor([[self.vocab_index_dict[token]]])).detach()
             self.state_dict['hidden'] = (self.state_dict['hidden'][0].detach(),
                                          self.state_dict['hidden'][1].detach())
+            hidden_state_list.append(copy.deepcopy(self.state_dict['hidden']))
 
-        return output
+            if softmax:
+                outputs = F.softmax(outputs, dim=1).squeeze().numpy()
+            output_list.append(outputs)
+
+        return output_list, hidden_state_list
 
     def forward(self, x):
         embedding_out = self.layer_dict['embedding'](x)
