@@ -19,6 +19,7 @@ class XAYBZ(corpus.Corpus):
                  max_y_per_sentence=1,
                  min_z_per_sentence=0,
                  max_z_per_sentence=0,
+                 num_omitted_ab_pairs=1,
 
                  document_organization_rule='all_pairs',
                  document_repetitions=1,
@@ -151,6 +152,7 @@ class XAYBZ(corpus.Corpus):
         self.num_ab_categories = num_ab_categories
         self.ab_category_size = ab_category_size
         self.ab_category_dict = None
+        self.num_omitted_ab_pairs = num_omitted_ab_pairs
 
         self.x_category_size = x_category_size
         self.min_x_per_sentence = min_x_per_sentence
@@ -200,6 +202,7 @@ class XAYBZ(corpus.Corpus):
         self.corpus_name = "Corpus"
         self.corpus_name += "_" + str(self.num_ab_categories)
         self.corpus_name += "_" + str(self.ab_category_size)
+        self.corpus_name += "_" + str(self.num_omitted_ab_pairs)
         self.corpus_name += "_" + str(self.x_category_size)
         self.corpus_name += "_" + str(self.min_x_per_sentence)
         self.corpus_name += "_" + str(self.max_x_per_sentence)
@@ -244,10 +247,14 @@ class XAYBZ(corpus.Corpus):
         return output_string
 
     def check_parameters(self):
+
+        print(self.num_omitted_ab_pairs)
         if self.num_ab_categories < 1:
             raise Exception("ERROR: num_AB_categories must be between >=1".format())
         if self.ab_category_size < 2:
             raise Exception("ERROR: AB_category_size must be >= 2")
+        if self.ab_category_size <= self.num_omitted_ab_pairs < 0:
+            raise Exception("ERROR: num_omitted_ab must be >= 0 and less than ab_category_size")
         if self.x_category_size < 0:
             raise Exception("ERROR: x_category_size must be >= 1")
         if self.min_x_per_sentence < 0:
@@ -330,7 +337,7 @@ class XAYBZ(corpus.Corpus):
         self.z_list = self.create_category_members(self.z_category_size, "z")
         self.add_words_to_vocab(self.z_list)
 
-    def create_word_pair_list(self):
+    def create_word_pair_list_old(self):
         self.included_ab_pair_list = []
         self.omitted_ab_pair_list = []
 
@@ -343,6 +350,27 @@ class XAYBZ(corpus.Corpus):
                         self.omitted_ab_pair_list.append((set1[i], set2[j]))
                     else:
                         self.included_ab_pair_list.append((set1[i], set2[j]))
+
+    def create_word_pair_list(self):
+        if not (0 <= self.num_omitted_ab_pairs < self.ab_category_size):
+            raise ValueError("num_omitted_pairs must be between 0 and one less than the size of the category")
+
+        self.included_ab_pair_list = []
+        self.omitted_ab_pair_list = []
+
+        for category, data in self.ab_category_dict.items():
+            set1, set2 = data
+            for i in range(self.ab_category_size):
+                for j in range(self.ab_category_size):
+                    # Calculate the offset for omitting pairs
+                    omit_index = (i + j) % self.ab_category_size
+                    if omit_index < self.num_omitted_ab_pairs:
+                        self.omitted_ab_pair_list.append((set1[i], set2[j]))
+                    else:
+                        self.included_ab_pair_list.append((set1[i], set2[j]))
+
+        print(self.included_ab_pair_list)
+        print(self.omitted_ab_pair_list)
 
     def get_pair_document_group(self, pair, index):
         if self.document_organization_rule == 'all_pairs':
