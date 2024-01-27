@@ -346,7 +346,10 @@ class XAYBZ(corpus.Corpus):
         instance = parts[1]
         return category, instance
 
-    def create_token_target_category_lists(self):
+    def assign_categories_to_token_targets(self):
+
+        # assigns categories to targets for each token
+
         for i, word1 in enumerate(self.vocab_list):
             self.token_target_category_list_dict[word1] = []
             for j, word2 in enumerate(self.vocab_list):
@@ -591,7 +594,9 @@ class XAYBZ(corpus.Corpus):
             sentence.append(".")
         return sentence
 
-    def assign_category_to_token(self, document_list):
+    def assign_categories_to_token_target_sequences(self, document_list):
+
+        # this function creates target category lists for each sequence
 
         if self.vocab_index_dict is None:
             raise Exception("ERROR: Vocab index dict does not exist")
@@ -619,13 +624,10 @@ class XAYBZ(corpus.Corpus):
                             token_target_category_list.append('.')
                         elif target[0] in ['x', 'y', 'z']:
                             token_target_category_list.append(target[0])
-                        elif token == target:
-                            if target[0] == 'A':
-                                token_target_category_list.append('A_Present')
-                            elif target[0] == 'B':
-                                token_target_category_list.append('B_Present')
-                            else:
-                                raise Exception("SHOULD NOT GET HERE", token, target)
+                        elif a_item == target:
+                            token_target_category_list.append('A_Present')
+                        elif b_item == target:
+                            token_target_category_list.append('B_Present')
                         else:
                             if target[0] == 'A':
                                 target_category, target_instance = self.get_category_and_instance(target)
@@ -654,11 +656,14 @@ class XAYBZ(corpus.Corpus):
         return target_label_lists
 
     @staticmethod
-    def create_word_category_dict(vocab_index_dict):
+    def create_word_category_dict(vocab_index_dict, include_subcategories=False):
         word_category_dict = {}
         for word, index in vocab_index_dict.items():
             if word[0] == "A" or word[0] == 'B':
-                category = word.split('_')[0]
+                if include_subcategories:
+                    category = word.split("_")[0]
+                else:
+                    category = word[0]
             elif word == '.':
                 category = '.'
             elif word[0] == 'x':

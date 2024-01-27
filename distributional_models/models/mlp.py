@@ -1,6 +1,8 @@
 import time
 import torch
 import torch.nn as nn
+import copy
+import torch.nn.functional as F
 from .neural_network import NeuralNetwork
 from datetime import datetime
 
@@ -92,6 +94,22 @@ class MLP(NeuralNetwork):
         took = time.time() - start_time
 
         return loss_mean, took
+
+    def test_sequence(self, sequence, softmax=True):
+        self.eval()
+        self.init_network()
+
+        output_list = []
+        hidden_state_list = []
+
+        for token in sequence:
+            outputs = self(torch.tensor([[self.vocab_index_dict[token]]])).detach()
+            hidden_state_list.append(copy.deepcopy(self.state_dict['hidden'].detach()))
+            if softmax:
+                outputs = F.softmax(outputs, dim=1).squeeze().numpy()
+            output_list.append(outputs)
+
+        return output_list, hidden_state_list
 
     def forward(self, x):
 

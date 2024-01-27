@@ -5,6 +5,7 @@ import torch.nn as nn
 from .neural_network import NeuralNetwork
 import torch.nn.functional as F
 from datetime import datetime
+import numpy as np
 
 
 class LSTM(NeuralNetwork):
@@ -27,7 +28,7 @@ class LSTM(NeuralNetwork):
         self.create_model_name()
 
     def define_network(self):
-
+        self.epoch = 0
         if self.embedding_size == 0:
             embedding_weights = torch.eye(self.vocab_size)
             self.layer_dict['embedding'] = nn.Embedding.from_pretrained(embedding_weights, freeze=True)
@@ -45,12 +46,14 @@ class LSTM(NeuralNetwork):
         self.model_name = f"lstm_{self.embedding_size}_{self.hidden_size}_{date_time_string}"
 
     def init_network(self, batch_size):
+
         self.state_dict = {}
         num_layers = 1
         self.state_dict['hidden'] = (torch.zeros(num_layers, batch_size, self.hidden_size).to(self.device),
                                      torch.zeros(num_layers, batch_size, self.hidden_size).to(self.device))
 
     def train_sequence(self, corpus, sequence, train_params):
+        self.epoch += 1
         start_time = time.time()
         self.train()
         self.set_optimizer(train_params['optimizer'], train_params['learning_rate'], train_params['weight_decay'])
@@ -71,10 +74,17 @@ class LSTM(NeuralNetwork):
 
         y_batches = single_y_batches
         self.init_network(train_params['batch_size'])
-
+        current_input = None
         for batch_num, (x_batch, y_batch) in enumerate(zip(x_batches, y_batches)):
+            last_input = copy.deepcopy(current_input)
+            current_input = x_batch[[0]]
             self.optimizer.zero_grad()
             output = self(x_batch)
+            np.set_printoptions(formatter={'float': '{:0.3f}'.format}, linewidth=np.inf)
+            if current_input in [2, 3, 4]:
+                softmaxed_outputs = F.softmax(output, dim=1)
+
+                print(self.epoch, self.vocab_list[last_input], self.vocab_list[current_input], softmaxed_outputs.detach().numpy()[-6:])
 
             self.state_dict['hidden'] = (self.state_dict['hidden'][0].detach(),
                                          self.state_dict['hidden'][1].detach())

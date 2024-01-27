@@ -1,6 +1,8 @@
 import time
 import torch
 import torch.nn as nn
+import copy
+import torch.nn.functional as F
 from torch.nn import functional
 from .neural_network import NeuralNetwork
 from datetime import datetime
@@ -111,6 +113,25 @@ class Transformer(NeuralNetwork):
         took = time.time() - start_time
 
         return loss_mean, took
+
+    def test_sequence(self, sequence, softmax=True):
+        self.eval()
+        self.init_network()
+
+        output_list = []
+        hidden_state_list = []
+        pads = ['<unk>' for _ in range(self.sequence_length-1)]
+        padded_sequence = pads+sequence
+        sequence = [self.vocab_index_dict[token] for token in padded_sequence]
+        x_batches = [sequence[i:i+self.sequence_length] for i in range(len(sequence)-self.sequence_length+1)]
+        for x_batch in x_batches:
+            outputs = self(torch.tensor([x_batch]))[:, -1, :].detach()
+            hidden_state_list.append(self.state_dict['hidden'][:, -1, :].unsqueeze(1).detach())
+            if softmax:
+                outputs = F.softmax(outputs, dim=1).squeeze().numpy()
+            output_list.append(outputs)
+
+        return output_list, hidden_state_list
 
     def forward(self, x_window):
         _, sequence_length = x_window.shape

@@ -1,16 +1,123 @@
 import pandas as pd
 import numpy as np
+from typing import Optional, List
 from sklearn.manifold import TSNE
 import plotly.graph_objects as go
-import seaborn as sn
+import seaborn as sns
 import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.use('TkAgg')
 from adjustText import adjust_text
 
 markers = ['o', 's', '^', 'v', 'd', 'p', 'h', '8', '>']
 categories = ['Present A', 'Omitted A', 'Legal As', 'Illegal As', 'Present B', 'Omitted B', 'Legal Bs', 'Illegal Bs',
               'y']
 color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+def main():
+    confusion_matrix = np.random.rand(5, 5)
+    x = np.linspace(0, 20, 11, dtype=int)
+    data = np.random.rand(6, 11)
+
+    # plot_confusion_matrix(matrix=confusion_matrix, vmin=0, vmax=1, xlabel='x', ylabel='y',
+    #                       xticks=['ABCD','ABCD','ABCD','ABCD','ABCD'],
+    #                       yticks=['ABCD','ABCD','ABCD','ABCD','ABCD'],
+    #                       xtick_format=[10, 45], ytick_format=[10, 45])
+
+    plot_lines(matrix=data, x=x, ymin=0, ymax=1, xticks=x, xtick_format=[10, 0], xlabel='epochs', ylabel='probability',
+               title='fake prediction plot')
+
+
+def plot_confusion_matrix(df=None, matrix=None, vmin=None, vmax=None,
+                          xticks=None, yticks=None, xlabel=None, ylabel=None,
+                          annot=True, xtick_format: Optional[List]=None, ytick_format: Optional[List]=None,title=None,
+                          path=None):
+    plt.figure(figsize=(10, 7))
+    if df is not None:
+        ax = sns.heatmap(df, annot=True, vmin=vmin, vmax=vmax, fmt='.1f')
+    else:
+        if matrix is not None:
+            ax = sns.heatmap(matrix, xticklabels=xticks, yticklabels=yticks, annot=True, vmin=vmin, vmax=vmax, fmt='.1f')
+    if xtick_format is not None:
+        ax.set_xticklabels(ax.get_xticklabels(), fontsize= xtick_format[0], rotation=xtick_format[1])
+    if ytick_format is not None:
+        ax.set_yticklabels(ax.get_yticklabels(), fontsize=ytick_format[0], rotation=ytick_format[1])
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.xaxis.tick_top()
+    plt.title(title)
+    plt.show()
+    if path:
+        plt.savefig(path)
+        plt.clf()
+
+
+def plot_lines(df=None, matrix=None, x=None, xcolumn=None, ycolumns: Optional[List[str]]=None, ymin=None, ymax=None,
+                             xticks=None, yticks=None, xlabel=None, ylabel=None,
+                             xtick_format: Optional[List]=None, ytick_format: Optional[List]=None, title=None,
+                             path=None):
+    if df:
+        for i, ycolumn in enumerate(ycolumns):
+            sns.lineplot(data=df, x=xcolumn, y=ycolumn, color=color_cycle[i])
+    else:
+        if matrix is not None and x is not None:
+            texts = []
+            for i, row in enumerate(matrix):
+                plt.plot(x, row, color=color_cycle[i], label=categories[i])
+                # Add labels near the end of each line
+                text = plt.text(x[-1], row[-1], categories[i], color=color_cycle[i])
+                texts.append(text)
+        if xticks is not None and xtick_format is not None:
+            plt.xticks(xticks, [str(i) for i in xticks], fontsize=xtick_format[0], rotation=xtick_format[1])
+        if yticks is not None and ytick_format is not None:
+            plt.yticks(yticks, [str(i) for i in yticks], fontsize=ytick_format[0], rotation=ytick_format[1])
+        adjust_text(texts, ax= plt.gca(), expand_text=(1.2, 1.2), only_move={'points': 'xy', 'text': 'x'}, ensure_inside_axes=True)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.ylim(ymin, ymax)
+    plt.title(title)
+
+    plt.show()
+    if path:
+        plt.savefig(path)
+        plt.clf()
+
+    # fig, axs = plt.subplots(2, 2, sharex=False, sharey=False, figsize=(10, 10))
+    # for column in range(2):
+    #     if column == 0:
+    #         grouped_df = sum_df.groupby(sum_df.input)
+    #         title = 'Sum Output Activations'
+    #     else:
+    #         grouped_df = mean_df.groupby(mean_df.input)
+    #         title = 'Mean Output Activations'
+    #     for row in range(2):
+    #         texts = []
+    #         j = 0
+    #         df_input = None
+    #         if row == 0:
+    #             df_input = grouped_df.get_group('A')
+    #             axs[row, column].set_title(title, fontsize=15)
+    #         else:
+    #             df_input = grouped_df.get_group('y')
+    #         for i, color in zip(range(len(categories)), color_cycle):
+    #             label = categories[i]
+    #             x = df_input.checkpoint
+    #             y = df_input[label]
+    #             axs[row, column].plot(x, y, label=label, color=color)
+    #             pos_x = x.iloc[round(len(x)-1 * 0.8)]
+    #             pos_y = y.iloc[round(len(x)-1 * 0.8)]
+    #             texts.append(axs[row, column].annotate(label, xy=(pos_x, pos_y), fontsize=10, color=color))
+    #         axs[row, column].set_ylabel('Output Activation', fontsize=13)
+    #         axs[row, column].set_xlabel('Epochs', fontsize=13)
+    #         # axs[row, column].legend(loc = 'upper right', prop={'size':10})
+    #         axs[row, column].set_ylim(-0.1, 1.1)
+    #         axs[row, column].set_yticks(np.arange(0, 1.1, 0.1))
+    #         adjust_text(texts, ax=axs[row, column], expand_text=(1.2, 1.2), only_move={'points': 'xy', 'text': 'x'})
+    #
+    # plt.subplots_adjust(wspace=0.2, hspace=0.2)
+    # plt.tight_layout(pad=1.0, w_pad=0.5, h_pad=0.9)
+    # plt.savefig(fig_savepath)
+    # plt.clf()
 
 
 def visualization_with_tsne(embeddings, vocab):
@@ -40,12 +147,7 @@ def visualization_with_tsne(embeddings, vocab):
     fig.write_html("../word2vec_visualization.html")
 
 
-def plot_confusion_matrix(confusion_matrix, fig_savepath):
-    plt.figure(figsize=(10, 7))
-    ax = sn.heatmap(confusion_matrix, annot=True, vmin=-1, vmax=1)
-    ax.xaxis.tick_top()
-    plt.savefig(fig_savepath)
-    plt.clf()
+
 
 
 def plot_prediction_accuracy(sum_df, mean_df, fig_savepath):
@@ -196,3 +298,7 @@ def plot_sim_score(df, type, fig_savepath):
     plt.tight_layout(pad=1.0, w_pad=0.5, h_pad=0.9)
     plt.savefig(fig_savepath)
     plt.clf()
+
+
+if __name__ == "__main__":
+    main()

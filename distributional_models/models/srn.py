@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from .neural_network import NeuralNetwork
 from datetime import datetime
+import copy
 
 
 class SRN(NeuralNetwork):
@@ -58,11 +59,13 @@ class SRN(NeuralNetwork):
 
         corpus_window_size = 1  # this is for creating w2v style windowed pairs in the dataset
 
-        x_batches, single_y_batches, y_window_batches = corpus.create_batched_sequence_lists(sequence,
-                                                                                             corpus_window_size,
-                                                                                             train_params['batch_size'],
-                                                                                             train_params['sequence_length'],
-                                                                                             self.device)
+        x_batches, \
+            single_y_batches, \
+            y_window_batches = corpus.create_batched_sequence_lists(sequence,
+                                                                    corpus_window_size,
+                                                                    train_params['batch_size'],
+                                                                    train_params['sequence_length'],
+                                                                    self.device)
 
         y_batches = single_y_batches
         self.init_network(train_params['batch_size'])
@@ -93,7 +96,25 @@ class SRN(NeuralNetwork):
 
         return loss_mean, took
 
-    def forward(self, x, hidden=None):
+    def test_sequence(self, sequence, softmax=True):
+        self.eval()
+        self.init_network(1)
+
+        output_list = []
+        hidden_state_list = []
+
+        for token in sequence:
+            outputs = self(torch.tensor([[self.vocab_index_dict[token]]])).detach()
+            self.state_dict['hidden'] = self.state_dict['hidden'].detach()
+            hidden_state_list.append(copy.deepcopy(self.state_dict['hidden']))
+
+            if softmax:
+                outputs = torch.nn.functional.softmax(outputs, dim=1).squeeze().numpy()
+            output_list.append(outputs)
+
+        return output_list, hidden_state_list
+
+    def forward(self, x):
 
         embedding_out = self.layer_dict['embedding'](x)
         # SRN layer
