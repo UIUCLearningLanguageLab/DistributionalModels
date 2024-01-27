@@ -12,6 +12,7 @@ class Categories(Dataset):
         self.category_index_dict = None
         self.instance_category_dict = instance_category_dict
         self.instance_category_file_path = instance_category_file_path
+
         self.num_categories = None
         self.instance_category_index_dict = None
 

@@ -2,6 +2,7 @@ import random
 import copy
 from . import corpus
 import itertools
+import numpy as np
 
 
 class XAYBZ(corpus.Corpus):
@@ -153,6 +154,7 @@ class XAYBZ(corpus.Corpus):
         self.ab_category_size = ab_category_size
         self.ab_category_dict = None
         self.num_omitted_ab_pairs = num_omitted_ab_pairs
+        self.legal_ab_matrix = None
 
         self.x_category_size = x_category_size
         self.min_x_per_sentence = min_x_per_sentence
@@ -190,6 +192,7 @@ class XAYBZ(corpus.Corpus):
         self.word_category_dict = None
         self.token_category_freq_dict = None
         self.target_category_index_dict = None
+        self.token_target_category_list_dict = None
 
         self.check_parameters()
         self.create_corpus_name()
@@ -247,8 +250,6 @@ class XAYBZ(corpus.Corpus):
         return output_string
 
     def check_parameters(self):
-
-        print(self.num_omitted_ab_pairs)
         if self.num_ab_categories < 1:
             raise Exception("ERROR: num_AB_categories must be between >=1".format())
         if self.ab_category_size < 2:
@@ -312,6 +313,7 @@ class XAYBZ(corpus.Corpus):
         self.generated_vocab_index_dict = {}
         self.generated_index_vocab_dict = {}
         self.generated_vocabulary_size = 0
+        self.token_target_category_list_dict = {}
 
         # self.unknown_token = '<unk>'
         self.add_words_to_vocab(['.'])
@@ -337,19 +339,76 @@ class XAYBZ(corpus.Corpus):
         self.z_list = self.create_category_members(self.z_category_size, "z")
         self.add_words_to_vocab(self.z_list)
 
-    def create_word_pair_list_old(self):
-        self.included_ab_pair_list = []
-        self.omitted_ab_pair_list = []
+    @staticmethod
+    def get_category_and_instance(token):
+        parts = token.split("_")
+        category = parts[0][1:]
+        instance = parts[1]
+        return category, instance
 
-        for category, data in self.ab_category_dict.items():
-            set1 = data[0]
-            set2 = data[1]
-            for i in range(self.ab_category_size):
-                for j in range(self.ab_category_size):
-                    if i == j:
-                        self.omitted_ab_pair_list.append((set1[i], set2[j]))
+    def create_token_target_category_lists(self):
+        for i, word1 in enumerate(self.vocab_list):
+            self.token_target_category_list_dict[word1] = []
+            for j, word2 in enumerate(self.vocab_list):
+                if word1 in ['.', 'Other',  '<unk>'] or word1[0] in ['x', 'y', 'z']:
+                    if word2 in ['.', 'Other', '<unk>']:
+                        self.token_target_category_list_dict[word1].append(word2)
+                    elif word2[0] in ['x', 'y', 'z']:
+                        self.token_target_category_list_dict[word1].append(word2[0])
                     else:
-                        self.included_ab_pair_list.append((set1[i], set2[j]))
+                        self.token_target_category_list_dict[word1].append(word2[0])
+                elif word1[0] == 'A':
+                    if word2 in ['.', 'Other', '<unk>']:
+                        self.token_target_category_list_dict[word1].append(word2)
+                    elif word2[0] in ['x', 'y', 'z']:
+                        self.token_target_category_list_dict[word1].append(word2[0])
+                    elif word2[0] == 'A':
+                        category1, instance1 = self.get_category_and_instance(word1)
+                        category2, instance2 = self.get_category_and_instance(word2)
+                        if category1 == category2:
+                            self.token_target_category_list_dict[word1].append("A_Legal")
+                        else:
+                            self.token_target_category_list_dict[word1].append("A_Illegal")
+                    elif word2[0] == 'B':
+                        category1, instance1 = self.get_category_and_instance(word1)
+                        category2, instance2 = self.get_category_and_instance(word2)
+                        if category1 != category2:
+                            self.token_target_category_list_dict[word1].append("B_Illegal")
+                        else:
+                            legal = self.legal_ab_matrix[int(instance1)-1, int(instance2)-1]
+                            if legal == 1:
+                                self.token_target_category_list_dict[word1].append("B_Legal")
+                            else:
+                                self.token_target_category_list_dict[word1].append("B_Omitted")
+                    else:
+                        raise Exception("Unrecognized Word 2")
+                elif word1[0] == 'B':
+                    if word2 in ['.', 'Other', '<unk>']:
+                        self.token_target_category_list_dict[word1].append(word2)
+                    elif word2[0] in ['x', 'y', 'z']:
+                        self.token_target_category_list_dict[word1].append(word2[0])
+                    elif word2[0] == 'B':
+                        category1, instance1 = self.get_category_and_instance(word1)
+                        category2, instance2 = self.get_category_and_instance(word2)
+                        if category1 == category2:
+                            self.token_target_category_list_dict[word1].append("B_Legal")
+                        else:
+                            self.token_target_category_list_dict[word1].append("B_Illegal")
+                    elif word2[0] == 'A':
+                        category1, instance1 = self.get_category_and_instance(word1)
+                        category2, instance2 = self.get_category_and_instance(word2)
+                        if category1 != category2:
+                            self.token_target_category_list_dict[word1].append("A_Illegal")
+                        else:
+                            legal = self.legal_ab_matrix[int(instance2)-1, int(instance1)-1]
+                            if legal == 1:
+                                self.token_target_category_list_dict[word1].append("A_Legal")
+                            else:
+                                self.token_target_category_list_dict[word1].append("A_Omitted")
+                    else:
+                        raise Exception("Unrecognized Word 2")
+                else:
+                    raise Exception("Unrecognized Word 1")
 
     def create_word_pair_list(self):
         if not (0 <= self.num_omitted_ab_pairs < self.ab_category_size):
@@ -357,6 +416,7 @@ class XAYBZ(corpus.Corpus):
 
         self.included_ab_pair_list = []
         self.omitted_ab_pair_list = []
+        self.legal_ab_matrix = np.zeros([self.ab_category_size, self.ab_category_size], int)
 
         for category, data in self.ab_category_dict.items():
             set1, set2 = data
@@ -366,11 +426,10 @@ class XAYBZ(corpus.Corpus):
                     omit_index = (i + j) % self.ab_category_size
                     if omit_index < self.num_omitted_ab_pairs:
                         self.omitted_ab_pair_list.append((set1[i], set2[j]))
+                        self.legal_ab_matrix[i, j] = 0
                     else:
                         self.included_ab_pair_list.append((set1[i], set2[j]))
-
-        print(self.included_ab_pair_list)
-        print(self.omitted_ab_pair_list)
+                        self.legal_ab_matrix[i, j] = 1
 
     def get_pair_document_group(self, pair, index):
         if self.document_organization_rule == 'all_pairs':
@@ -541,50 +600,57 @@ class XAYBZ(corpus.Corpus):
 
         for i, document in enumerate(document_list):
             for j, sequence in enumerate(document):
-                A_word = []
-                B_word = []
+                a_item_category = None
+                b_item_category = None
+                a_item_instance = None
+                b_item_instance = None
                 for token in sequence:
                     if token[0] == 'A':
-                        A_word = token.split('_')
-                    elif token[0] == 'B':
-                        B_word = token.split('_')
-                for k, token in enumerate(sequence):
-                    token_category_list = []
-                    for word, index in self.vocab_index_dict.items():
-                        current_word = word.split('_')
-                        if current_word[0] == '.':
-                            token_category_list.append('.')
-                        elif current_word[0][0] == 'A':
-                            if current_word == A_word:
-                                token_category_list.append('A_Present')
-                            elif current_word[0][1:] == B_word[0][1:]:
-                                if current_word[1] == B_word[1]:
-                                    token_category_list.append('A_Omitted')
-                                else:
-                                    token_category_list.append('A_Legal')
-                            else:
-                                token_category_list.append('A_Illegal')
-                        elif current_word[0][0] == 'B':
-                            if current_word == B_word:
-                                token_category_list.append('B_Present')
-                            else:
-                                if current_word[0][1:] == A_word[0][1:]:
-                                    if current_word[1] == A_word[1]:
-                                        token_category_list.append('B_Omitted')
-                                    else:
-                                        token_category_list.append('B_Legal')
-                                else:
-                                    token_category_list.append('B_Illegal')
-                        elif current_word[0][0] == 'x':
-                            token_category_list.append('x')
-                        elif current_word[0][0] == 'y':
-                            token_category_list.append('y')
-                        elif current_word[0][0] == 'z':
-                            token_category_list.append('z')
-                        else:
-                            token_category_list.append('Other')
+                        a_item = token
+                        a_item_category, a_item_instance = self.get_category_and_instance(a_item)
+                    if token[0] == 'B':
+                        b_item = token
+                        b_item_category, b_item_instance = self.get_category_and_instance(b_item)
 
-                        target_label_lists[i][j][k] = token_category_list
+                for k, token in enumerate(sequence):
+                    token_target_category_list = []
+                    for target, index in self.vocab_index_dict.items():
+                        if target == '.':
+                            token_target_category_list.append('.')
+                        elif target[0] in ['x', 'y', 'z']:
+                            token_target_category_list.append(target[0])
+                        elif token == target:
+                            if target[0] == 'A':
+                                token_target_category_list.append('A_Present')
+                            elif target[0] == 'B':
+                                token_target_category_list.append('B_Present')
+                            else:
+                                raise Exception("SHOULD NOT GET HERE", token, target)
+                        else:
+                            if target[0] == 'A':
+                                target_category, target_instance = self.get_category_and_instance(target)
+                                if target_category != b_item_category:
+                                    token_target_category_list.append('A_Illegal')
+                                else:
+                                    legal = self.legal_ab_matrix[int(target_instance)-1, int(b_item_instance)-1]
+                                    if legal == 1:
+                                        token_target_category_list.append('A_Legal')
+                                    else:
+                                        token_target_category_list.append('A_Omitted')
+                            elif target[0] == 'B':
+                                target_category, target_instance = self.get_category_and_instance(target)
+                                if target_category != a_item_category:
+                                    token_target_category_list.append('B_Illegal')
+                                else:
+                                    legal = self.legal_ab_matrix[int(a_item_instance)-1, int(target_instance)-1]
+                                    if legal == 1:
+                                        token_target_category_list.append('B_Legal')
+                                    else:
+                                        token_target_category_list.append('B_Omitted')
+                            else:
+                                token_target_category_list.append('Other')
+
+                        target_label_lists[i][j][k] = token_target_category_list
         return target_label_lists
 
     @staticmethod
