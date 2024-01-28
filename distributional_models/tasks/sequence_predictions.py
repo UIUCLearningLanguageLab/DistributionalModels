@@ -143,7 +143,7 @@ class SequencePredictions:
         safe_inverse = np.divide(1.0, mean_matrix_row_sums, where=mean_matrix_row_sums != 0, out=np.zeros_like(mean_matrix_row_sums, dtype=float))
         self.output_activation_mean_matrix = self.output_activation_mean_matrix * safe_inverse[:, np.newaxis]
 
-        self.print_matrix(self.output_activation_mean_matrix, self.token_category_list, self.target_category_list)
+        #self.print_matrix(self.output_activation_mean_matrix, self.token_category_list, self.target_category_list)
 
     @staticmethod
     def print_matrix(matrix, row_labels, column_labels):

@@ -203,6 +203,10 @@ class SimilarityMatrices:
                 sim_score = self.instance_similarity_matrix[i, j]
                 category_similarity_sums[row_index, column_index] += sim_score
                 self.category_similarity_counts[row_index, column_index] += 1
+        # self.print_matrix(category_similarity_sums, self.instance_category_list, self.target_category_list)
+        # self.print_matrix(self.category_similarity_counts, self.instance_category_list, self.target_category_list)
+        self.category_similarity_matrix = category_similarity_sums / self.category_similarity_counts
+        # self.print_matrix(self.category_similarity_matrix, self.instance_category_list, self.target_category_list)
 
     def output_results(self):
         print()

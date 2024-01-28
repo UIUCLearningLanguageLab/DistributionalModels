@@ -28,7 +28,7 @@ class LSTM(NeuralNetwork):
         self.create_model_name()
 
     def define_network(self):
-        self.epoch = 0
+
         if self.embedding_size == 0:
             embedding_weights = torch.eye(self.vocab_size)
             self.layer_dict['embedding'] = nn.Embedding.from_pretrained(embedding_weights, freeze=True)
@@ -74,18 +74,14 @@ class LSTM(NeuralNetwork):
 
         y_batches = single_y_batches
         self.init_network(train_params['batch_size'])
-        current_input = None
 
-        correct_sum = 0
-        incorrect_sum = 0
         for batch_num, (x_batch, y_batch) in enumerate(zip(x_batches, y_batches)):
-            last_input = copy.deepcopy(current_input)
-            current_input = x_batch[[0]]
-            self.optimizer.zero_grad()
-            output = self(x_batch)
-            np.set_printoptions(formatter={'float': '{:0.3f}'.format}, linewidth=np.inf)
             self.state_dict['hidden'] = (self.state_dict['hidden'][0].detach(),
                                          self.state_dict['hidden'][1].detach())
+
+            self.optimizer.zero_grad()
+            output = self(x_batch)
+
             if train_params['l1_lambda']:
                 l1_norm = sum(p.abs().sum() for p in self.parameters())
                 loss = self.criterion(output.view(-1, corpus.vocab_size),
@@ -95,22 +91,6 @@ class LSTM(NeuralNetwork):
 
             mask = y_batch.view(-1) != 0
             loss = (loss * mask).mean()
-            if current_input in [2, 3, 4]:
-                output = F.softmax(output, dim=1)
-                B1_mean = output.detach().numpy()[0][-6:-3].mean()
-                B2_mean = output.detach().numpy()[0][-3:].mean()
-                if self.vocab_list[last_input][1] == "1":
-                    correct_mean = B1_mean
-                    incorrect_mean = B2_mean
-                elif self.vocab_list[last_input][1] == "2":
-                    correct_mean = B2_mean
-                    incorrect_mean = B1_mean
-                else:
-                    raise Exception("BAD")
-                correct_sum += correct_mean
-                incorrect_sum += incorrect_mean
-
-                # print(self.epoch, self.vocab_list[last_input], self.vocab_list[current_input], correct_mean, incorrect_mean)
 
             loss.backward()
             self.optimizer.step()
@@ -121,6 +101,7 @@ class LSTM(NeuralNetwork):
         loss_mean = loss_sum / tokens_sum
         took = time.time() - start_time
 
+        np.set_printoptions(formatter={'float': '{:0.3f}'.format}, linewidth=np.inf)
         # print(f"{correct_sum/len(x_batches):0.3f}, {incorrect_sum/len(x_batches):0.3f}")
 
         return loss_mean, took

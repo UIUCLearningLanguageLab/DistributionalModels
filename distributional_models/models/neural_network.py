@@ -21,6 +21,8 @@ class NeuralNetwork(nn.Module):
         self.vocab_index_dict = None
         self.vocab_size = None
 
+        self.epoch = 0
+
         self.init_vocab(vocab_list)
 
     def init_vocab(self, vocab_list):
@@ -118,5 +120,20 @@ class NeuralNetwork(nn.Module):
         model.load_state_dict(torch.load(filepath, map_location=device))
         return model
 
+    def print_outputs(self, current_input, last_input, output):
+        if current_input in [2, 3, 4]:
+            output = torch.nn.functional.softmax(output, dim=1)
+            b1_mean = output.detach().numpy()[0][-6:-3].mean()
+            b2_mean = output.detach().numpy()[0][-3:].mean()
+            if self.vocab_list[last_input][1] == "1":
+                correct_mean = b1_mean
+                incorrect_mean = b2_mean
+            elif self.vocab_list[last_input][1] == "2":
+                correct_mean = b2_mean
+                incorrect_mean = b1_mean
+            else:
+                raise Exception("BAD")
+            correct_sum += correct_mean
+            incorrect_sum += incorrect_mean
 
 

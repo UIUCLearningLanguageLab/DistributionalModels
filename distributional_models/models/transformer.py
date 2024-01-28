@@ -143,7 +143,7 @@ class Transformer(NeuralNetwork):
         self.state_dict['combined_input'] = combined_input
         self.state_dict['attention_weighted_values'] = attention_weighted_values
         self.state_dict['attention_weights'] = attention_weights
-        self.state_dict['h'] = h
+        self.state_dict['hidden'] = h
 
         return outputs
 
