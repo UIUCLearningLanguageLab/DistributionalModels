@@ -62,7 +62,6 @@ def plot_time_series(df, groupby_columns, y_column, yerr_column, title, y_label,
     plt.show()
 
 
-
 def main():
     pass
 
