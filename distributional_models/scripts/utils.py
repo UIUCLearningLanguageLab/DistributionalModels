@@ -1,8 +1,8 @@
 import numpy as np
 from scipy.spatial import distance
-import torch.optim as optim
 from torch.optim.lr_scheduler import LambdaLR
 import pandas as pd
+import scipy.stats as stats
 
 
 def print_neighbhors_from_file():
@@ -32,6 +32,14 @@ def print_neighbhors_from_file():
             current_index = sorted_indexes[j]
             print(header_list[current_index], current_sims[current_index])
         print()
+
+
+def conf_interval(group, alpha=0.05):
+    std = group.std()
+    n = len(group)
+    se = std / n ** 0.5
+    h = se * stats.t.ppf((1 + (1 - alpha)) / 2., n - 1)
+    return h
 
 
 def create_similarity_matrix(embedding_matrix, metric:str):
