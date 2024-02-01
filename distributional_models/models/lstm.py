@@ -76,11 +76,10 @@ class LSTM(NeuralNetwork):
         self.init_network(train_params['batch_size'])
 
         for batch_num, (x_batch, y_batch) in enumerate(zip(x_batches, y_batches)):
-            self.state_dict['hidden'] = (self.state_dict['hidden'][0].detach(),
-                                         self.state_dict['hidden'][1].detach())
-
             self.optimizer.zero_grad()
             output = self(x_batch)
+            self.state_dict['hidden'] = (self.state_dict['hidden'][0].detach(),
+                                         self.state_dict['hidden'][1].detach())
 
             if train_params['l1_lambda']:
                 l1_norm = sum(p.abs().sum() for p in self.parameters())
@@ -106,9 +105,13 @@ class LSTM(NeuralNetwork):
 
         return loss_mean, took
 
-    def test_sequence(self, sequence, softmax=True):
+    def test_sequence(self, sequence, params, softmax=True):
         self.eval()
-        self.init_network(1)
+        if params['reset_hidden']:
+            self.init_network(1)
+        else:
+            if self.state_dict['hidden'] is None:
+                self.init_network(1)
 
         output_list = []
         hidden_state_list = []

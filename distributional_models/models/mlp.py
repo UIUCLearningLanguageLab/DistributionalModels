@@ -73,6 +73,9 @@ class MLP(NeuralNetwork):
         self.init_network()
 
         for batch_num, (x_batch, y_batch) in enumerate(zip(x_batches, y_batches)):
+            # print(x_batch)
+            # print()
+            # print(y_batch)
             self.optimizer.zero_grad()
             output = self(x_batch)
 
@@ -106,7 +109,7 @@ class MLP(NeuralNetwork):
             outputs = self(torch.tensor([[self.vocab_index_dict[token]]])).detach()
             hidden_state_list.append(copy.deepcopy(self.state_dict['hidden'].detach()))
             if softmax:
-                outputs = F.softmax(outputs, dim=1).squeeze().numpy()
+                outputs = F.softmax(outputs, dim=2).squeeze().numpy()
             output_list.append(outputs)
 
         return output_list, hidden_state_list

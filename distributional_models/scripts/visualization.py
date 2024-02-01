@@ -1,16 +1,15 @@
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 import seaborn as sns
+import numpy as np
 
 
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-def plot_time_series(df, groupby_columns, y_column, yerr_column, title, y_label, line_properties=None):
+def plot_time_series(df, groupby_columns, y_column, yerr_column, title, y_label, ylim, line_properties=None, save_path=None):
     # Font size constants
-    TITLE_FONTSIZE = 16
-    AXIS_LABEL_FONTSIZE = 12
-    TICK_LABEL_FONTSIZE = 10
-    LEGEND_FONTSIZE = 10
+    TITLE_FONTSIZE = 35 #16
+    AXIS_LABEL_FONTSIZE = 35 #12
+    TICK_LABEL_FONTSIZE = 25 #10
+    LEGEND_FONTSIZE = 20 #10
 
     sns.set_style("white")
 
@@ -23,7 +22,7 @@ def plot_time_series(df, groupby_columns, y_column, yerr_column, title, y_label,
         raise ValueError("y_column or yerr_column not found in DataFrame")
 
     # Create a figure and a set of subplots
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(12, 10))
 
     # Group the DataFrame
     grouped_df = df.groupby(groupby_columns)
@@ -50,16 +49,22 @@ def plot_time_series(df, groupby_columns, y_column, yerr_column, title, y_label,
 
     # Adjusting tick labels font size
     ax.tick_params(axis='both', which='major', labelsize=TICK_LABEL_FONTSIZE)
+    ax.set_yticks(np.arange(ylim[0], ylim[1]+0.1, 0.2))
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=11))
 
     # Remove grid lines
     ax.grid(False)
 
     # Creating a legend with a specific font size
-    ax.legend(title=' & '.join(groupby_columns), fontsize=LEGEND_FONTSIZE, bbox_to_anchor=(1.05, 1), loc='upper left')
+    # ax.legend(title=' & '.join(groupby_columns), fontsize=LEGEND_FONTSIZE, bbox_to_anchor=(1.05, 1), loc='upper left')
 
     # Show the plot
     plt.tight_layout()
-    plt.show()
+    if save_path is not None:
+        plt.savefig(save_path)
+        plt.clf()
+    else:
+        plt.show()
 
 
 def main():

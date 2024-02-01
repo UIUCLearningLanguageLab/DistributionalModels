@@ -5,11 +5,12 @@ import time
 
 class SequencePredictions:
 
-    def __init__(self, model, document_list, token_list=None, target_list=None,
+    def __init__(self, model, params, document_list, token_list=None, target_list=None,
                  token_categories=None, target_categories=None):
         start_time = time.time()
         self.model = model
         self.document_list = document_list
+        self.params = params
 
         if token_list is None:
             self.token_list = copy.deepcopy(model.vocab_list)
@@ -104,10 +105,9 @@ class SequencePredictions:
     def calculate_matrices(self):
         self.output_activation_sum_matrix = np.zeros([self.num_token_categories, self.num_target_categories], float)
         self.output_activation_mean_matrix = np.zeros([self.num_token_categories, self.num_target_categories], float)
-
         for i, document in enumerate(self.document_list):
             for j, sequence in enumerate(document):
-                output_activation_list, _ = self.model.test_sequence(sequence)
+                output_activation_list, _ = self.model.test_sequence(sequence, self.params)
 
                 for k, token in enumerate(sequence):
                     if token in self.token_list:

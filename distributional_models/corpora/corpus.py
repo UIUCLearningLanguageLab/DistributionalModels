@@ -191,7 +191,6 @@ class Corpus(Dataset):
         y = []
         for i in range(len(index_list)):
             for j in range(1, window_size + 1):
-
                 # Check if the index is within the bounds of the list
                 if i - j >= 0:
                     x.append(index_list[i])
@@ -323,12 +322,18 @@ class Corpus(Dataset):
                                                                            self.vocab_index_dict,
                                                                            self.unknown_token,
                                                                            window_size=window_size)
-        sequence_list = self.create_sequence_lists(self.index_list, sequence_length+1, pad_index=pad_index)
+        if window_size == 1:
+            sequence_list = self.create_sequence_lists(self.index_list, sequence_length+1, pad_index=pad_index)
 
-        # print("sequence_list", sequence_list)
+            # print("sequence_list", sequence_list)
 
-        x_batches, y_batches, y_window_batches = self.create_batches(sequence_list, batch_size, sequence_length,
-                                                                     pad_index)
+            x_batches, y_batches, y_window_batches = self.create_batches(sequence_list, batch_size, sequence_length,
+                                                                         pad_index)
+        else:
+            x_batches = [[self.x_list[i:i + batch_size]] for i in range(0, len(self.x_list), batch_size)]
+            y_batches = [[self.y_list[i:i + batch_size]] for i in range(0, len(self.y_list), batch_size)]
+            y_window_batches = []
+
         #
         # print()
         # print("x_batches", x_batches)

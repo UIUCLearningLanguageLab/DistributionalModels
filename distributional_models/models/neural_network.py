@@ -63,16 +63,33 @@ class NeuralNetwork(nn.Module):
         if layer in self.layer_dict:
             if layer == 'output':  # (vocab_size, hidden_size)
                 tensor = self.layer_dict['output'].weight
-            elif layer == 'lstm':
-                tensor = self.layer_dict['lstm'].weight_ih_l0.t()
-            elif layer == 'embedding':
-                tensor = self.layer_dict['embedding'].weight
-            elif layer == 'hidden':
-                tensor = self.layer_dict['hidden'].weight.t()  # (hidden, vocab)
             else:
                 raise NotImplementedError(f"No implementation for getting weights of type {layer}")
         else:
-            raise ValueError(f"Layer type {layer} not in layer_dict")
+            if layer == 'input':
+                if self.model_type == 'lstm':
+                    if self.embedding_size == 0:
+                        tensor = self.layer_dict['lstm'].weight_ih_l0.t()
+                    else:
+                        tensor = self.layer_dict['embedding'].weight()
+                        # the output result should always be vocab_size * layer_size
+                elif self.model_type == 'srn':
+                    if self.embedding_size == 0:
+                        # double check that
+                        tensor = self.layer_dict['srn'].weight_ih_l0.t()
+                    else:
+                        tensor = self.layer_dict['embedding'].weight()
+                elif self.model_type == 'mlp':
+                    if self.embedding_size == 0:
+                        tensor = self.layer_dict['hidden'].weight.t()
+                    else:
+                        tensor = self.layer_dict['embedding'].weight
+                elif self.model_type == 'transformer':
+                    tensor = self.layer_dict['token_embeddings_table'].weight
+                else:
+                    raise NotImplementedError(f"No implementation for getting inputs from model {self.model_type}")
+            else:
+                raise ValueError(f"Layer type {layer} not in layer_dict")
 
         if str(self.device.type) == 'cpu':
             weight_array = tensor.detach().numpy()

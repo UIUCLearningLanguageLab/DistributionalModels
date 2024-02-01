@@ -41,6 +41,7 @@ def evaluate_model(label, model, corpus, train_params, training_took, loss_mean,
             sequence_target_label_list = corpus.assign_category_index_to_token(test_sequence_list)
             print("corpus target_category_index dict", corpus.target_category_index_dict)
             the_sequence_predictions = SequencePredictions(model,
+                                                           train_params,
                                                            test_sequence_list,
                                                            sequence_target_label_list=sequence_target_label_list,
                                                            token_category_dict=corpus.word_category_dict,
