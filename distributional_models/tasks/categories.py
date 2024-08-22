@@ -6,15 +6,23 @@ from torch.utils.data import Dataset, random_split
 
 class Categories(Dataset):
 
-    def __init__(self, instance_category_dict=None, instance_category_file_path=None):
+    def __init__(self, instance_category_dict=None, instance_category_file_path=None,
+                 instance_subcategory_dict=None, instance_subcategory_file_path=None):
 
         self.category_list = None
         self.category_index_dict = None
         self.instance_category_dict = instance_category_dict
         self.instance_category_file_path = instance_category_file_path
 
+        self.subcategory_list = None
+        self.subcategory_index_dict = None
+        self.instance_subcategory_dict = instance_subcategory_dict
+        self.instance_subcategory_file_path = instance_subcategory_file_path
+
         self.num_categories = None
         self.instance_category_index_dict = None
+        self.num_subcategories = None
+        self.instance_subcategory_index_dict = None
 
         self.instance_list = None
         self.instance_index_dict = None
@@ -24,6 +32,8 @@ class Categories(Dataset):
         self.category_instance_list_dict = None
         self.instance_category_matrix = None
         self.instance_instance_matrix = None
+        self.subcategory_instance_list_dict = None
+        self.instance_subcategory_matrix = None
 
         self.sequence_target_category_list = None
         self.target_category_list = None
@@ -37,8 +47,12 @@ class Categories(Dataset):
 
         if self.instance_category_dict is not None:
             self.create_from_instance_category_dict()
+            if self.instance_subcategory_dict is not None:
+                self.create_from_instance_subcategory_dict()
         elif self.instance_category_file_path is not None:
             self.create_from_category_file()
+            if self.instance_subcategory_file_path is not None:
+                self.create_from_subcategory_file()
         else:
             raise Exception("Must provide either an instance_category_dict or a instance_category_file_path")
 
@@ -61,6 +75,20 @@ class Categories(Dataset):
                 self.instance_category_dict[key] = row[1]
 
         self.create_from_instance_category_dict()
+
+    def create_from_subcategory_file(self):
+
+        self.instance_subcategory_dict = {}
+
+        with open(self.instance_subcategory_file_path, encoding='utf-8-sig') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                key = row[0]
+                if key in self.instance_subcategory_dict:
+                    raise ValueError(f"Duplicate instance detected: {key}")
+                self.instance_subcategory_dict[key] = row[1]
+
+        self.create_from_instance_subcategory_dict()
 
     def create_from_instance_category_dict(self):
         self.category_index_dict = {}
@@ -103,10 +131,53 @@ class Categories(Dataset):
                 if category1 == category2:
                     self.instance_instance_matrix[i, j] = 1
 
+    def create_from_instance_subcategory_dict(self):
+        self.subcategory_index_dict = {}
+        self.subcategory_list = []
+        self.num_subcategories = 0
+        for instance in self.instance_subcategory_dict:
+            subcategory = self.instance_subcategory_dict[instance]
+            if subcategory not in self.subcategory_index_dict:
+                self.subcategory_index_dict[subcategory] = self.num_subcategories
+                self.num_subcategories += 1
+                self.subcategory_list.append(subcategory)
+
+        self.subcategory_instance_list_dict = {}
+
+        for i in range(self.num_subcategories):
+            self.subcategory_instance_list_dict[self.subcategory_list[i]] = []
+
+        self.instance_list = list(self.instance_category_dict.keys())
+        self.num_instances = len(self.instance_list)
+
+        self.instance_subcategory_matrix = np.zeros([self.num_instances, self.num_subcategories], int)
+        self.instance_instance_matrix = np.zeros([self.num_instances, self.num_instances], int)
+        self.instance_index_dict = {}
+        self.instance_subcategory_index_dict = {}
+
+        for i in range(self.num_instances):
+            self.instance_index_dict[self.instance_list[i]] = i
+            instance1 = self.instance_list[i]
+            subcategory1 = self.instance_subcategory_dict[instance1]
+            j = self.subcategory_index_dict[subcategory1]
+            self.instance_subcategory_matrix[i, j] = 1
+            self.subcategory_instance_list_dict[subcategory1].append(instance1)
+
+            self.instance_subcategory_index_dict[instance1] = j
+
+            # for j in range(self.num_instances):
+            #
+            #     instance2 = self.instance_list[j]
+            #     subcategory2 = self.instance_category_dict[instance2]
+            #     if subcategory1 == subcategory2:
+            #         self.instance_instance_matrix[i, j] = 1
+
     def remove_instances(self, instance_list):
         for instance in instance_list:
             del self.instance_category_dict[instance]
+            del self.instance_subcategory_dict[instance]
         self.create_from_instance_category_dict()
+        self.create_from_instance_subcategory_dict()
 
     def set_instance_feature_matrix(self, data_matrix, data_index_dict):
         #  embedding matrix vocab size x embedding size 8192x128

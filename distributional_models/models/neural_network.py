@@ -15,6 +15,7 @@ class NeuralNetwork(nn.Module):
         self.device = None
         self.criterion = None
         self.optimizer = None
+        self.activation_function = None
         self.model_name = None
 
         self.vocab_list = None
@@ -47,9 +48,9 @@ class NeuralNetwork(nn.Module):
         else:
             raise ValueError("Invalid criterion")
 
-    def set_optimizer(self, optimizer, learning_rate, weight_decay):
+    def set_optimizer(self, optimizer, learning_rate, weight_decay, momentum=None):
         if optimizer == 'sgd':
-            self.optimizer = optim.SGD(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
+            self.optimizer = optim.SGD(self.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=momentum)
         elif optimizer == 'adam':
             self.optimizer = optim.Adam(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
         elif optimizer == 'adamW':
@@ -59,10 +60,15 @@ class NeuralNetwork(nn.Module):
         else:
             raise ValueError(f"Invalid optimizer {optimizer}")
 
+    def set_activation_function(self, activation_function):
+        self.activation_function = activation_function
+
     def get_weights(self, layer):
         if layer in self.layer_dict:
             if layer == 'output':  # (vocab_size, hidden_size)
                 tensor = self.layer_dict['output'].weight
+            elif layer == 'hidden':
+                tensor = self.layer_dict['hidden'].weight
             else:
                 raise NotImplementedError(f"No implementation for getting weights of type {layer}")
         else:
@@ -88,6 +94,37 @@ class NeuralNetwork(nn.Module):
                     tensor = self.layer_dict['token_embeddings_table'].weight
                 else:
                     raise NotImplementedError(f"No implementation for getting inputs from model {self.model_type}")
+            elif layer == 'hidden':
+                if self.model_type == 'lstm':
+                    tensor = self.layer_dict['lstm'].weight_hh_l0.t()
+                elif self.model_type == 'srn':
+                    tensor = self.layer_dict['srn'].weight_hh_l0.t()
+                elif self.model_type == 'transformer':
+                    tensor = self.layer_dict['hidden_layer'].net[0].weight.t()
+                else:
+                    raise ValueError(f"model {self.model_type} does not have hidden to hidden weights")
+            elif layer == 'input_bias':
+                if self.model_type == 'lstm':
+                    tensor = self.layer_dict['lstm'].bias_ih_l0.t()
+                elif self.model_type == 'srn':
+                    tensor = self.layer_dict['srn'].bias_ih_l0.t()
+                elif self.model_type == 'mlp':
+                    tensor = self.layer_dict['hidden'].bias.t()
+                elif self.model_type == 'transformer':
+                    tensor = self.layer_dict['token_embeddings_table'].weight
+                else:
+                    raise NotImplementedError(f"No implementation for getting inputs from model {self.model_type}")
+            elif layer == 'hidden_bias':
+                if self.model_type == 'lstm':
+                    tensor = self.layer_dict['lstm'].bias_hh_l0.t()
+                elif self.model_type == 'srn':
+                    tensor = self.layer_dict['srn'].bias_hh_l0.t()
+                elif self.model_type == 'transformer':
+                    tensor = self.layer_dict['hidden_layer'].net[0].bias.t()
+                else:
+                    tensor = self.layer_dict['hidden'].bias.data
+            elif layer == 'output_bias':
+                tensor = self.layer_dict['output'].bias.data
             else:
                 raise ValueError(f"Layer type {layer} not in layer_dict")
 
@@ -101,6 +138,21 @@ class NeuralNetwork(nn.Module):
             raise ValueError("Unrecognized device", self.device.type)
 
         return weight_array
+
+    def init_weights(self, weight_init_hidden, weight_init_linear):
+        for name, param in self.named_parameters():
+            if 'weight_ih' in name:  # Input-hidden weights
+                nn.init.uniform_(param.data, -weight_init_hidden, weight_init_hidden)
+                # nn.init.xavier_uniform(param.data)
+                # nn.init.orthogonal_(param.data)
+            elif 'weight_hh' in name:  # Hidden-hidden weights
+                nn.init.uniform_(param.data, -weight_init_hidden, weight_init_hidden)
+                # nn.init.xavier_uniform(param.data)
+                # nn.init.orthogonal_(param.data)
+            # elif 'bias' in name:  # Bias
+            #     nn.init.uniform_(param.data, -weight_init, weight_init)
+            elif 'linear' in name:  # Linear layer weights
+                nn.init.uniform_(param.data, -weight_init_linear, weight_init_linear)
 
     @staticmethod
     def create_model_directory(dir_path):
@@ -133,24 +185,26 @@ class NeuralNetwork(nn.Module):
         """
         Load a model's state dictionary from a file.
         """
-        model = cls()  # Create an instance of the model
-        model.load_state_dict(torch.load(filepath, map_location=device))
+        with gzip.open(filepath, 'rb') as f:
+            model = torch.load(f, map_location=device)
         return model
+        # model = cls()  # Create an instance of the model
 
-    def print_outputs(self, current_input, last_input, output):
-        if current_input in [2, 3, 4]:
-            output = torch.nn.functional.softmax(output, dim=1)
-            b1_mean = output.detach().numpy()[0][-6:-3].mean()
-            b2_mean = output.detach().numpy()[0][-3:].mean()
-            if self.vocab_list[last_input][1] == "1":
-                correct_mean = b1_mean
-                incorrect_mean = b2_mean
-            elif self.vocab_list[last_input][1] == "2":
-                correct_mean = b2_mean
-                incorrect_mean = b1_mean
-            else:
-                raise Exception("BAD")
-            correct_sum += correct_mean
-            incorrect_sum += incorrect_mean
+
+    # def print_outputs(self, current_input, last_input, output):
+    #     if current_input in [2, 3, 4]:
+    #         output = torch.nn.functional.softmax(output, dim=1)
+    #         b1_mean = output.detach().numpy()[0][-6:-3].mean()
+    #         b2_mean = output.detach().numpy()[0][-3:].mean()
+    #         if self.vocab_list[last_input][1] == "1":
+    #             correct_mean = b1_mean
+    #             incorrect_mean = b2_mean
+    #         elif self.vocab_list[last_input][1] == "2":
+    #             correct_mean = b2_mean
+    #             incorrect_mean = b1_mean
+    #         else:
+    #             raise Exception("BAD")
+    #         correct_sum += correct_mean
+    #         incorrect_sum += incorrect_mean
 
 

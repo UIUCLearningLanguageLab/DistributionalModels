@@ -177,8 +177,8 @@ class XAYBZ(corpus.Corpus):
         self.word_order_rule = word_order_rule
         self.include_punctuation = include_punctuation
 
-        self.random_seed = random_seed
-        random.seed(random_seed)
+        self.random_seed = 10
+        random.seed(self.random_seed)
 
         self.generated_type_list = None
         self.ab_category_dict = None
@@ -194,7 +194,14 @@ class XAYBZ(corpus.Corpus):
         self.target_category_index_dict = None
         self.token_target_category_list_dict = None
 
-        self.check_parameters()
+        # self.check_parameters()
+        # self.create_corpus_name()
+        # self.create_vocabulary()
+        # self.create_word_pair_list()
+        #
+        # self.create_documents()
+
+    def create_corpus(self):
         self.create_corpus_name()
         self.create_vocabulary()
         self.create_word_pair_list()
@@ -426,7 +433,7 @@ class XAYBZ(corpus.Corpus):
             for i in range(self.ab_category_size):
                 for j in range(self.ab_category_size):
                     # Calculate the offset for omitting pairs
-                    omit_index = (i + j) % self.ab_category_size
+                    omit_index = abs(i - j) % self.ab_category_size
                     if omit_index < self.num_omitted_ab_pairs:
                         self.omitted_ab_pair_list.append((set1[i], set2[j]))
                         self.legal_ab_matrix[i, j] = 0
@@ -676,5 +683,4 @@ class XAYBZ(corpus.Corpus):
                 category = 'Other'
             word_category_dict[word] = category
         return word_category_dict
-
 

@@ -4,7 +4,7 @@ import pandas as pd
 import torch
 from collections import Counter
 from torch.utils.data import Dataset
-import sys
+
 
 class Corpus(Dataset):
 
@@ -184,26 +184,41 @@ class Corpus(Dataset):
         return index_list
 
     @staticmethod
-    def create_windowed_index_list(index_list, window_size):
+    def create_windowed_index_list(index_list, window_size, direction='both', pad_index=0):
         if window_size == 0:
             raise ValueError("Window size cannot be 0, must be None or positive integer")
+        # if direction == 'both':
+        #     padded_index_list = [pad_index] * (window_size/2) + index_list
+        if direction == 'backward':
+            padded_index_list = [pad_index] * window_size + index_list
+        else:
+            padded_index_list = index_list + [pad_index] * window_size
         x = []
         y = []
-        for i in range(len(index_list)):
+        for i in range(len(padded_index_list)):
             for j in range(1, window_size + 1):
                 # Check if the index is within the bounds of the list
-                if i - j >= 0:
-                    x.append(index_list[i])
-                    y.append(index_list[i - j])
-                if i + j < len(index_list):
-                    x.append(index_list[i])
-                    y.append(index_list[i + j])
+                if direction == 'both':
+                    if i - j >= 0:
+                        x.append(padded_index_list[i])
+                        y.append(padded_index_list[i - j])
+                    if i + j < len(padded_index_list):
+                        x.append(padded_index_list[i])
+                        y.append(padded_index_list[i + j])
+                elif direction == 'forward':
+                    if i + window_size < len(padded_index_list):
+                        x.append(padded_index_list[i])
+                        y.append(padded_index_list[i + j])
+                else:
+                    if i < len(padded_index_list) - window_size:
+                        x.append(padded_index_list[i + j - 1])
+                        y.append(padded_index_list[i + window_size])
         return x, y
 
-    def create_index_list(self, flattened_list, vocab_index_dict, unknown_token, window_size=None):
+    def create_index_list(self, flattened_list, vocab_index_dict, unknown_token, window_size=None, window_direction=None):
         index_list = self.create_simple_index_list(flattened_list, vocab_index_dict, unknown_token)
         if window_size is not None:
-            x, y = self.create_windowed_index_list(index_list, window_size)
+            x, y = self.create_windowed_index_list(index_list, window_size, window_direction)
         else:
             x = index_list[:-1]
             y = index_list[1:]
@@ -259,11 +274,12 @@ class Corpus(Dataset):
             return [[index] for index in index_list]
         else:
             # Original logic for longer sequences
-            padded_list = [pad_index] * (sequence_length - 2) + index_list + [pad_index] * (sequence_length - 2)
+            padded_list = [pad_index] * (sequence_length - 2) + index_list
             sequence_lists = []
-            for i in range(len(index_list) + 1):
-                sequence = padded_list[i:i + sequence_length]
-                sequence_lists.append(sequence)
+            for i in range(len(padded_list) + 1):
+                if i + sequence_length <= len(padded_list):
+                    sequence = padded_list[i:i + sequence_length]
+                    sequence_lists.append(sequence)
             return sequence_lists
 
     @staticmethod
@@ -314,18 +330,18 @@ class Corpus(Dataset):
 
         return x_batches, y_batches, y_window_batches
 
-    def create_batched_sequence_lists(self, document_list, window_size, batch_size, sequence_length, device):
+    def create_batched_sequence_lists(self, document_list, window_size, window_direction, batch_size, sequence_length, device):
         corpus_token_list = self.flatten_corpus_lists(document_list)
         pad_index = 0
-
+        window_size = window_size
+        window_direction = window_direction
         self.x_list, self.y_list, self.index_list = self.create_index_list(corpus_token_list,
                                                                            self.vocab_index_dict,
                                                                            self.unknown_token,
-                                                                           window_size=window_size)
+                                                                           window_size=window_size,
+                                                                           window_direction=window_direction)
         if window_size == 1:
             sequence_list = self.create_sequence_lists(self.index_list, sequence_length+1, pad_index=pad_index)
-
-            # print("sequence_list", sequence_list)
 
             x_batches, y_batches, y_window_batches = self.create_batches(sequence_list, batch_size, sequence_length,
                                                                          pad_index)
@@ -333,15 +349,6 @@ class Corpus(Dataset):
             x_batches = [[self.x_list[i:i + batch_size]] for i in range(0, len(self.x_list), batch_size)]
             y_batches = [[self.y_list[i:i + batch_size]] for i in range(0, len(self.y_list), batch_size)]
             y_window_batches = []
-
-        #
-        # print()
-        # print("x_batches", x_batches)
-        # print()
-        # print("y_batches", y_batches)
-        # print()
-        # print("y_window_batches", y_window_batches)
-        # sys.exit()
 
         x_batches = [torch.tensor(x_batch, dtype=torch.long).to(device) for x_batch in x_batches]
         y_batches = [torch.tensor(y_batch, dtype=torch.long).to(device) for y_batch in y_batches]

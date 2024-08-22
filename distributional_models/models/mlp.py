@@ -4,7 +4,9 @@ import torch.nn as nn
 import copy
 import torch.nn.functional as F
 from .neural_network import NeuralNetwork
+import pandas as pd
 from datetime import datetime
+import csv
 
 
 class MLP(NeuralNetwork):
@@ -13,7 +15,8 @@ class MLP(NeuralNetwork):
                  embedding_size,
                  hidden_size,
                  weight_init,
-                 dropout_rate):
+                 dropout_rate,
+                 act_func):
 
         super(MLP, self).__init__(vocab_list)
         self.model_type = "mlp"
@@ -22,12 +25,12 @@ class MLP(NeuralNetwork):
         self.hidden_size = hidden_size
         self.weight_init = weight_init
         self.dropout_rate = dropout_rate
+        self.activation_function = act_func
 
         self.define_network()
         self.create_model_name()
 
     def define_network(self):
-
         if self.embedding_size == 0:
             embedding_weights = torch.eye(self.vocab_size)
             self.layer_dict['embedding'] = nn.Embedding.from_pretrained(embedding_weights, freeze=True)
@@ -35,8 +38,10 @@ class MLP(NeuralNetwork):
         else:
             self.layer_dict['embedding'] = nn.Embedding(self.vocab_size, self.embedding_size)
             self.layer_dict['hidden'] = nn.Linear(self.embedding_size, self.hidden_size)
-
-        self.layer_dict['relu'] = nn.ReLU()
+        if self.activation_function == 'relu':
+            self.layer_dict['activation'] = nn.ReLU()
+        elif self.activation_function == 'tanh':
+            self.layer_dict['activation'] = nn.Tanh()
 
         if self.dropout_rate > 0:
             self.layer_dict['dropout'] = nn.Dropout(self.dropout_rate)
@@ -50,10 +55,12 @@ class MLP(NeuralNetwork):
     def init_network(self):
         self.state_dict = {}
 
-    def train_sequence(self, corpus, sequence, train_params):
+    def train_sequence(self, corpus, sequence, train_params, epoch=0,
+                       save_example_corpus=False):
         start_time = time.time()
         self.train()
-        self.set_optimizer(train_params['optimizer'], train_params['learning_rate'], train_params['weight_decay'])
+        self.set_optimizer(train_params['optimizer'], train_params['learning_rate'],
+                           train_params['weight_decay'], train_params['momentum'])
         self.set_criterion(train_params['criterion'])
 
         tokens_sum = 0
@@ -65,20 +72,63 @@ class MLP(NeuralNetwork):
             single_y_batches, \
             y_window_batches = corpus.create_batched_sequence_lists(sequence,
                                                                     train_params['corpus_window_size'],
+                                                                    train_params['corpus_window_direction'],
                                                                     train_params['batch_size'],
                                                                     sequence_length,
                                                                     self.device)
 
         y_batches = single_y_batches
-        self.init_network()
+        window_size = train_params['corpus_window_size']
+        if save_example_corpus:
+            corpus_save_path = '/Users/jingfengzhang/FirstYearProject/AyB/ayb/corpus and co_occurrence/'
+            input_list = [self.vocab_list[t.numpy().item()] for t in x_batches]
+            output_list = [self.vocab_list[t.numpy().item()] for t in y_batches]
+            pairs = []
+            if train_params['corpus_window_direction'] == 'forward':
+                csv_file_name = corpus_save_path + f'forward_w2v_training_data_{epoch}.csv'
+                headers = ["input"] + [f"output{i + 1}" for i in range(train_params['corpus_window_size'])]
+                for i in range(0, len(input_list), window_size):
+                    input_token = input_list[i]
+                    output_tokens = output_list[i:i + window_size]
+                    pairs.append([input_token] + output_tokens)
+            elif train_params['corpus_window_direction'] == 'backward':
+                csv_file_name = corpus_save_path + 'backward_w2v_training_data.csv'
+                headers = [f"input{i + 1}" for i in range(train_params['corpus_window_size'])] + ["output"]
+                for i in range(0, len(output_list), window_size):
+                    output_token = output_list[i]
+                    input_tokens = input_list[i:i + window_size]
+                    pairs.append(input_tokens + [output_token])
 
+            # Write the data into the CSV file
+            with open(csv_file_name, mode='w', newline='') as csv_file:
+                writer = csv.writer(csv_file)
+
+                # Write the header
+                writer.writerow(headers)
+
+                # Write the rows
+                writer.writerows(pairs)
+
+            # Create a DataFrame from the pairs
+            df = pd.DataFrame(pairs, columns=headers)
+
+            # Melt the DataFrame to create a long format DataFrame with input-output pairs
+            if train_params['corpus_window_direction'] == 'forward':
+                melted_df = df.melt(id_vars=headers[:1], value_vars=headers[1:],
+                                    var_name='output_type', value_name='output')
+                co_occurrence_table = melted_df.groupby(['input', 'output']).size().unstack(fill_value=0)
+                co_occurrence_table.to_csv(corpus_save_path + 'forward_co_occurrence_table.csv')
+            elif train_params['corpus_window_direction'] == 'backward':
+                melted_df = df.melt(id_vars=headers[-1:], value_vars=headers[:-1],
+                                    var_name='input_type', value_name='input')
+                # Create the co-occurrence table by counting the frequency of each input-output pair
+                co_occurrence_table = melted_df.groupby(['output', 'input']).size().unstack(fill_value=0)
+                co_occurrence_table.to_csv(corpus_save_path + 'backward_co_occurrence_table.csv')
+
+        self.init_network()
         for batch_num, (x_batch, y_batch) in enumerate(zip(x_batches, y_batches)):
-            # print(x_batch)
-            # print()
-            # print(y_batch)
             self.optimizer.zero_grad()
             output = self(x_batch)
-
             if train_params['l1_lambda']:
                 l1_norm = sum(p.abs().sum() for p in self.parameters())
                 loss = self.criterion(output.view(-1, corpus.vocab_size),
@@ -95,8 +145,10 @@ class MLP(NeuralNetwork):
 
         loss_mean = loss_sum / tokens_sum
         took = time.time() - start_time
-
-        return loss_mean, took
+        if save_example_corpus:
+            return loss_mean, took, co_occurrence_table
+        else:
+            return loss_mean, took
 
     def test_sequence(self, sequence, softmax=True):
         self.eval()
@@ -107,20 +159,22 @@ class MLP(NeuralNetwork):
 
         for token in sequence:
             outputs = self(torch.tensor([[self.vocab_index_dict[token]]])).detach()
-            hidden_state_list.append(copy.deepcopy(self.state_dict['hidden'].detach()))
+            hidden_state_list.append(copy.deepcopy(self.state_dict['hidden'].detach().squeeze().numpy()))
             if softmax:
                 outputs = F.softmax(outputs, dim=2).squeeze().numpy()
+            else:
+                outputs = outputs.squeeze().numpy()
             output_list.append(outputs)
 
-        return output_list, hidden_state_list
+        return hidden_state_list, output_list, hidden_state_list
 
     def forward(self, x):
 
         embedding_out = self.layer_dict['embedding'](x)
 
         self.state_dict['zhidden'] = self.layer_dict['hidden'](embedding_out)
-        self.state_dict['hidden'] = self.layer_dict['relu'](self.state_dict['zhidden'])
-
+        # self.state_dict['hidden'] = self.layer_dict['relu'](self.state_dict['zhidden'])
+        self.state_dict['hidden'] = self.layer_dict['activation'](self.state_dict['zhidden'])
         if self.dropout_rate:
             self.state_dict['hidden'] = self.layer_dict['dropout'](self.state_dict['hidden'])
 

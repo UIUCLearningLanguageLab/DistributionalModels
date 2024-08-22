@@ -25,18 +25,21 @@ def generate_sequence(model, tokens=("look", "at"), sequence_length=10, temperat
         # Prepare the input tensor
         # input_tensor = torch.tensor([input_index_list[-max_seq_length:]]).to(model.device)
         input_token = input_token_list[-max_seq_length:]
-        output_list, _ = model.test_sequence(input_token)
-        output = output_list[0]
+        _, output_list, _ = model.test_sequence(input_token)
+        output = output_list[-1]
         # output = model(input_tensor)
         if model.model_type in ['transformer', 'mlp']:
-            last_output = output[0, -1, :]
+            last_output = output
         else:
             last_output = output
         # # Generate next token
         last_output = torch.tensor(last_output)
+        # print(torch.round(last_output * 100) / 100)
         output_distribution = last_output.detach().view(-1).div(temperature).exp()
 
         if torch.isnan(output_distribution).any() or torch.isinf(output_distribution).any():
+            print(output_distribution)
+            print(last_output.detach().view(-1).div(temperature))
             print("NaN or Inf values in output_distribution")
             break
 

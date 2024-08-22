@@ -6,6 +6,7 @@ from .neural_network import NeuralNetwork
 import torch.nn.functional as F
 from datetime import datetime
 import numpy as np
+import csv
 
 
 class LSTM(NeuralNetwork):
@@ -14,7 +15,9 @@ class LSTM(NeuralNetwork):
                  embedding_size,
                  hidden_size,
                  weight_init,
-                 dropout_rate):
+                 dropout_rate,
+                 act_func,
+                 use_bias=True):
 
         super(LSTM, self).__init__(vocab_list)
         self.model_type = "lstm"
@@ -23,6 +26,8 @@ class LSTM(NeuralNetwork):
         self.hidden_size = hidden_size
         self.weight_init = weight_init
         self.dropout_rate = dropout_rate
+        self.activation_function = act_func
+        self.use_bias = use_bias
 
         self.define_network()
         self.create_model_name()
@@ -37,7 +42,7 @@ class LSTM(NeuralNetwork):
         else:
             self.layer_dict['embedding'] = nn.Embedding(self.vocab_size, self.embedding_size)
             self.layer_dict['lstm'] = nn.LSTM(self.embedding_size, self.hidden_size, dropout=self.dropout_rate,
-                                              batch_first=True)
+                                              batch_first=True, nonlinearity=self.activation_function)
 
         self.layer_dict['output'] = nn.Linear(self.hidden_size, self.vocab_size)
 
@@ -52,11 +57,12 @@ class LSTM(NeuralNetwork):
         self.state_dict['hidden'] = (torch.zeros(num_layers, batch_size, self.hidden_size).to(self.device),
                                      torch.zeros(num_layers, batch_size, self.hidden_size).to(self.device))
 
-    def train_sequence(self, corpus, sequence, train_params):
+    def train_sequence(self, corpus, sequence, train_params, save_example_corpus=False):
         self.epoch += 1
         start_time = time.time()
         self.train()
-        self.set_optimizer(train_params['optimizer'], train_params['learning_rate'], train_params['weight_decay'])
+        self.set_optimizer(train_params['optimizer'], train_params['learning_rate'],
+                           train_params['weight_decay'], train_params['momentum'])
         self.set_criterion(train_params['criterion'])
 
         tokens_sum = 0
@@ -68,11 +74,47 @@ class LSTM(NeuralNetwork):
             single_y_batches, \
             y_window_batches = corpus.create_batched_sequence_lists(sequence,
                                                                     corpus_window_size,
+                                                                    train_params['corpus_window_direction'],
                                                                     train_params['batch_size'],
                                                                     train_params['sequence_length'],
                                                                     self.device)
 
         y_batches = single_y_batches
+        if save_example_corpus:
+            if train_params['sequence_length'] == 1:
+                input_list = [self.vocab_list[t.numpy().item()] for t in x_batches]
+                output_list = [self.vocab_list[t.numpy().item()] for t in y_batches]
+
+            else:
+                input_list = [self.vocab_list[index] for t in x_batches for index in t.numpy().flatten()]
+                output_list = [self.vocab_list[t.numpy().item()] for t in y_batches]
+
+            sequence_length = train_params['sequence_length']  # Adjust this parameter as needed
+
+            # Generate pairs
+            pairs = []
+            for i in range(0, len(input_list), sequence_length):
+                input_tokens = input_list[i:i + sequence_length]
+                output_token = output_list[i // sequence_length]
+                pairs.append(input_tokens + [output_token])
+
+            # Define the CSV file name
+            csv_file_name = \
+                '/Users/jingfengzhang/FirstYearProject/AyB/ayb/corpus and co_occurrence/lstm_training_data.csv'
+
+            # Write the data into the CSV file
+            with open(csv_file_name, mode='w', newline='') as csv_file:
+                writer = csv.writer(csv_file)
+
+                # Write the header dynamically based on sequence length
+                header = [f"input{i + 1}" for i in range(sequence_length)] + ["output"]
+                writer.writerow(header)
+
+                # Write the rows
+                writer.writerows(pairs)
+
+            print(f"Data successfully written to {csv_file_name}")
+
         self.init_network(train_params['batch_size'])
 
         for batch_num, (x_batch, y_batch) in enumerate(zip(x_batches, y_batches)):
@@ -105,28 +147,36 @@ class LSTM(NeuralNetwork):
 
         return loss_mean, took
 
-    def test_sequence(self, sequence, params, softmax=True):
+    def test_sequence(self, sequence, pad=False, softmax=True):
         self.eval()
-        if params['reset_hidden']:
-            self.init_network(1)
-        else:
-            if self.state_dict['hidden'] is None:
-                self.init_network(1)
-
+        self.init_network(1)
+        previous_state_list = []
         output_list = []
         hidden_state_list = []
-
-        for token in sequence:
-            outputs = self(torch.tensor([[self.vocab_index_dict[token]]])).detach()
+        sequence_length = self.params['sequence_length']
+        # pad sequence based on sequence length
+        sequence = [self.vocab_index_dict[token] for token in sequence]
+        if pad:
+            padded_sequence = [self.vocab_index_dict[self.params['unknown_token']]] * (sequence_length - 1) + sequence
+        else:
+            padded_sequence = sequence
+        sequence_list = []
+        for i in range(len(padded_sequence)):
+            if i + sequence_length <= len(padded_sequence):
+                sequence_list.append(padded_sequence[i:i+sequence_length])
+        for sequence in sequence_list:
+            previous_state_list.append(self.state_dict['hidden'][0].squeeze().numpy())
+            outputs = self(torch.tensor([sequence])).detach()
             self.state_dict['hidden'] = (self.state_dict['hidden'][0].detach(),
                                          self.state_dict['hidden'][1].detach())
-            hidden_state_list.append(copy.deepcopy(self.state_dict['hidden']))
+            hidden_state_list.append(copy.deepcopy(self.state_dict['hidden'][0].squeeze().numpy()))
 
             if softmax:
                 outputs = F.softmax(outputs, dim=1).squeeze().numpy()
+            else:
+                outputs = outputs.squeeze().numpy()
             output_list.append(outputs)
-
-        return output_list, hidden_state_list
+        return previous_state_list, output_list, hidden_state_list
 
     def forward(self, x):
         embedding_out = self.layer_dict['embedding'](x)

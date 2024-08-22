@@ -182,7 +182,8 @@ class SimilarityMatrices:
 
     def create_category_similarity_matrix(self):
         if self.instance_categories is not None:
-            num_rows = self.instance_categories.num_categories
+            # num_rows = self.instance_categories.num_categories
+            num_rows = self.num_instance_categories
         else:
             num_rows = len(self.vocab_index_dict)
 
@@ -205,7 +206,8 @@ class SimilarityMatrices:
                 self.category_similarity_counts[row_index, column_index] += 1
         # self.print_matrix(category_similarity_sums, self.instance_category_list, self.target_category_list)
         # self.print_matrix(self.category_similarity_counts, self.instance_category_list, self.target_category_list)
-        self.category_similarity_matrix = category_similarity_sums / self.category_similarity_counts
+        with np.errstate(divide='ignore', invalid='ignore'):
+            self.category_similarity_matrix = category_similarity_sums / self.category_similarity_counts
         # self.print_matrix(self.category_similarity_matrix, self.instance_category_list, self.target_category_list)
 
     def output_results(self):
@@ -234,3 +236,23 @@ class SimilarityMatrices:
             for cell in row:
                 print(f"{cell:>{col_width}.3f}", end=" ")  # Right-align and format the cell value
             print()
+
+    @staticmethod
+    def get_top_similar_words(similarity_matrix, vocab_list, top_n=5):
+        if similarity_matrix.shape[0] != similarity_matrix.shape[1]:
+            raise ValueError("Similarity matrix must be square.")
+        if len(vocab_list) != similarity_matrix.shape[0]:
+            raise ValueError("Length of vocab_list must match the dimensions of the similarity matrix.")
+
+        top_similar_words = {}
+        for i, word in enumerate(vocab_list):
+            # Get the similarity scores for the current word
+            similarity_scores = similarity_matrix[i]
+            # Get the indices of the top N most similar words, excluding the word itself
+            top_indices = np.argsort(similarity_scores)[::-1][1:top_n + 1]
+            # Get the corresponding words from vocab_list
+            top_words = [vocab_list[idx] for idx in top_indices]
+            # Store the results in the dictionary
+            top_similar_words[word] = top_words
+
+        return top_similar_words
