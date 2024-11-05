@@ -98,6 +98,7 @@ class SequencePredictions:
                     for l in range(self.model.vocab_size):
                         current_output = self.model.vocab_list[l]
                         if current_output in self.target_list:
+                            #print(i, j, k, l)
                             current_category = self.target_categories.document_category_lists[i][j][k][l]
                             if current_category not in self.target_category_list:
                                 self.target_category_list.append(current_category)

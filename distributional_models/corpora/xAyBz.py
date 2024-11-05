@@ -1,11 +1,11 @@
 import random
 import copy
-from . import corpus
+from . import corpus2
 import itertools
 import numpy as np
 
 
-class XAYBZ(corpus.Corpus):
+class XAYBZ(corpus2.Corpus):
 
     def __init__(self,
                  num_ab_categories=2,

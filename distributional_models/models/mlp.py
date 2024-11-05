@@ -55,7 +55,7 @@ class MLP(NeuralNetwork):
     def init_network(self):
         self.state_dict = {}
 
-    def train_sequence(self, corpus, sequence, train_params, epoch=0,
+    def train_sequence(self, dataset, sequence, train_params, epoch=0,
                        save_example_corpus=False):
         start_time = time.time()
         self.train()
@@ -70,7 +70,7 @@ class MLP(NeuralNetwork):
 
         x_batches, \
             single_y_batches, \
-            y_window_batches = corpus.create_batched_sequence_lists(sequence,
+            y_window_batches = dataset.create_batched_sequence_lists(sequence,
                                                                     train_params['corpus_window_size'],
                                                                     train_params['corpus_window_direction'],
                                                                     train_params['batch_size'],
@@ -131,10 +131,10 @@ class MLP(NeuralNetwork):
             output = self(x_batch)
             if train_params['l1_lambda']:
                 l1_norm = sum(p.abs().sum() for p in self.parameters())
-                loss = self.criterion(output.view(-1, corpus.vocab_size),
-                                      y_batch.view(-1)) + train_params['l1_lambda'] * l1_norm
+                loss = self.criterion(output.view(-1, dataset.num_y,
+                                      y_batch.view(-1)) + train_params['l1_lambda'] * l1_norm)
             else:
-                loss = self.criterion(output.view(-1, corpus.vocab_size), y_batch.view(-1))
+                loss = self.criterion(output.view(-1, dataset.num_y), y_batch.view(-1))
             mask = y_batch.view(-1) != 0
             loss = (loss * mask).mean()
             loss.backward()

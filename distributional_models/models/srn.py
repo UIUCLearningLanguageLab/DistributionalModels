@@ -51,7 +51,7 @@ class SRN(NeuralNetwork):
         num_layers = 1
         self.state_dict['hidden'] = torch.zeros(num_layers, batch_size, self.hidden_size).to(self.device)
 
-    def train_sequence(self, corpus, sequence, train_params):
+    def train_sequence(self, dataset, sequence, train_params):
         start_time = time.time()
         self.train()
         self.set_optimizer(train_params['optimizer'], train_params['learning_rate'],
@@ -64,7 +64,7 @@ class SRN(NeuralNetwork):
         corpus_window_size = 1  # this is for creating w2v style windowed pairs in the dataset
         x_batches, \
         single_y_batches, \
-        y_window_batches, = corpus.create_batched_sequence_lists(sequence,
+        y_window_batches, = dataset.create_batched_sequence_lists(sequence,
                                                                  corpus_window_size,
                                                                  train_params['corpus_window_direction'],
                                                                  train_params['batch_size'],
@@ -75,16 +75,18 @@ class SRN(NeuralNetwork):
         self.init_network(train_params['batch_size'])
 
         for batch_num, (x_batch, y_batch) in enumerate(zip(x_batches, y_batches)):
+            #print(batch_num, x_batch, y_batch)
+
             self.optimizer.zero_grad()
             output = self(x_batch)
             self.state_dict['hidden'] = self.state_dict['hidden'].detach()
 
             if train_params['l1_lambda']:
                 l1_norm = sum(p.abs().sum() for p in self.parameters())
-                loss = self.criterion(output.view(-1, corpus.vocab_size),
+                loss = self.criterion(output.view(-1, dataset.num_y),
                                       y_batch.view(-1)) + train_params['l1_lambda'] * l1_norm
             else:
-                loss = self.criterion(output.view(-1, corpus.vocab_size), y_batch.view(-1))
+                loss = self.criterion(output.view(-1, dataset.num_y), y_batch.view(-1))
 
             mask = y_batch.view(-1) != 0
             loss = (loss * mask).mean()

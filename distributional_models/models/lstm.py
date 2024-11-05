@@ -57,7 +57,7 @@ class LSTM(NeuralNetwork):
         self.state_dict['hidden'] = (torch.zeros(num_layers, batch_size, self.hidden_size).to(self.device),
                                      torch.zeros(num_layers, batch_size, self.hidden_size).to(self.device))
 
-    def train_sequence(self, corpus, sequence, train_params, save_example_corpus=False):
+    def train_sequence(self, dataset, sequence, train_params, save_example_corpus=False):
         self.epoch += 1
         start_time = time.time()
         self.train()
@@ -72,7 +72,7 @@ class LSTM(NeuralNetwork):
 
         x_batches, \
             single_y_batches, \
-            y_window_batches = corpus.create_batched_sequence_lists(sequence,
+            y_window_batches = dataset.create_batched_sequence_lists(sequence,
                                                                     corpus_window_size,
                                                                     train_params['corpus_window_direction'],
                                                                     train_params['batch_size'],
@@ -125,10 +125,10 @@ class LSTM(NeuralNetwork):
 
             if train_params['l1_lambda']:
                 l1_norm = sum(p.abs().sum() for p in self.parameters())
-                loss = self.criterion(output.view(-1, corpus.vocab_size),
+                loss = self.criterion(output.view(-1, dataset.num_y),
                                       y_batch.view(-1)) + train_params['l1_lambda'] * l1_norm
             else:
-                loss = self.criterion(output.view(-1, corpus.vocab_size), y_batch.view(-1))
+                loss = self.criterion(output.view(-1, dataset.num_y), y_batch.view(-1))
 
             mask = y_batch.view(-1) != 0
             loss = (loss * mask).mean()

@@ -59,7 +59,7 @@ class Transformer(NeuralNetwork):
         self.model_name = \
             f"tf_{self.embedding_size}_{self.num_heads}_{self.attention_size}_{self.hidden_size}_{date_time_string}"
 
-    def train_sequence(self, corpus, sequence, train_params, save_example_corpus=False):
+    def train_sequence(self, dataset, sequence, train_params, save_example_corpus=False):
         start_time = time.time()
         self.train()
         self.set_optimizer(train_params['optimizer'], train_params['learning_rate'], train_params['weight_decay'], train_params['momentum'])
@@ -70,7 +70,7 @@ class Transformer(NeuralNetwork):
 
         corpus_window_size = 1  # this is for creating w2v style windowed pairs in the dataset
 
-        x_batches, single_y_batches, y_window_batches = corpus.create_batched_sequence_lists(sequence,
+        x_batches, single_y_batches, y_window_batches = dataset.create_batched_sequence_lists(sequence,
                                                                                              corpus_window_size,
                                                                                              train_params['corpus_window_direction'],
                                                                                              train_params['batch_size'],
