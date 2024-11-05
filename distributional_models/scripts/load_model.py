@@ -30,6 +30,7 @@ def load_model(param_path, param_name, model_index, epoch_list):
                                    ab_category_size=param2val['ab_category_size'],
                                    num_ab_categories=param2val['num_ab_categories'],
                                    num_omitted_ab_pairs=param2val['num_omitted_ab_pairs'])
+                    corpus.create_corpus()
                     missing_training_words = corpus.create_vocab()
                 elif child.is_dir():
                     model_type = param2val['model_type']
@@ -67,6 +68,7 @@ def load_models(param_path, param_name, num_epochs=None, epoch_selected=None, nu
                                    ab_category_size=param2val['ab_category_size'],
                                    num_ab_categories=param2val['num_ab_categories'],
                                    num_omitted_ab_pairs=param2val['num_omitted_ab_pairs'])
+                    corpus.create_corpus()
                     missing_training_words = corpus.create_vocab()
                 elif child.is_dir():
                     model_type = param2val['model_type']

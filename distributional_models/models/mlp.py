@@ -150,7 +150,7 @@ class MLP(NeuralNetwork):
         else:
             return loss_mean, took
 
-    def test_sequence(self, sequence, softmax=True):
+    def test_sequence(self, sequence, pad=True, softmax=True):
         self.eval()
         self.init_network()
 

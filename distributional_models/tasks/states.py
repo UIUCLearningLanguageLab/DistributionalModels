@@ -94,7 +94,7 @@ class States:
     def get_hidden_state(self, sequence):
         model = self.model
         model.eval()
-        _, _, hidden_states = self.model.test_sequence(self.corpus, sequence, self.params)
+        _, _, hidden_states = self.model.test_sequence(sequence, pad=True)
         return hidden_states[-1]
 
     def get_hidden_states(self, compute_entropy=False, compute_sparsity=False, compute_contrast_contribution=False):
@@ -114,7 +114,7 @@ class States:
         self.sequence_pre_hidden_state_dict = defaultdict(list)
         for document in test_document_list:
             for sequence in document:
-                pre_hidden_states, _, hidden_states = model.test_sequence(self.corpus, sequence, self.params)
+                pre_hidden_states, _, hidden_states = model.test_sequence(sequence, pad=True)
                 for i, token in enumerate(sequence):
                     self.token_hidden_state_dict[token].append(hidden_states[i])
                     if compute_entropy:

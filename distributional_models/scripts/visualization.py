@@ -195,10 +195,12 @@ def plot_sub_time_series(ax, df, groupby_columns, y_column, yerr_column, title, 
     # Iterate over the line_properties dictionary
     for group_label_key, (custom_label, color, linewidth, linestyle) in line_properties.items():
         # Convert the string key back to a tuple if necessary
-        group_values = tuple(group_label_key.split(', ')) if ', ' in group_label_key else group_label_key
+        # Here, we use tuple(group_label_key.split(', ')) if splitting on commas results in multiple items
+        group_values = tuple(group_label_key.split(', ')) if ', ' in group_label_key else (group_label_key,)
 
         # Check if the group exists in the DataFrame
-        if group_values in grouped_df.groups:
+        if group_values[0] in grouped_df.groups:
+            # Pass the tuple group_values to get_group
             group = grouped_df.get_group(group_values)
 
             # Plot the line

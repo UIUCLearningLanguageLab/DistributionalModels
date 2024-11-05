@@ -2,6 +2,7 @@ import copy
 import numpy as np
 import time
 import pandas as pd
+from collections import defaultdict
 
 
 class SequencePredictions:
@@ -13,6 +14,7 @@ class SequencePredictions:
         self.corpus = corpus
         self.document_list = document_list
         self.params = params
+        self.params['unknown_token'] = '<unk>'
         self.accuracy_dict = {}
 
         if token_list is None:
@@ -118,10 +120,13 @@ class SequencePredictions:
                               'B_alt_subgroup_correct': 0,
                               'y_group_correct': 0
                               }
+
+        model_analysis_dict = defaultdict(list)
         prediction_count_dict = {target_category: 0 for target_category in self.target_categories.document_category_lists[0][0][0]}
         for i, document in enumerate(self.document_list):
             output_activation_matrix = np.zeros([len(document), 4, self.model.vocab_size])
             for j, sequence in enumerate(document):
+                self.model.params = self.params
                 _, output_activation_list, _ = self.model.test_sequence(sequence, pad=True)
                 for k, token in enumerate(sequence):
                     token_category = self.token_categories.instance_category_dict[token]
@@ -129,18 +134,33 @@ class SequencePredictions:
                     output_activation_matrix[j, k] = output_array
                     prediction = np.argmax(output_array)
                     target_category_list = self.target_categories.document_category_lists[i][j][k]
+                    y_indices = [index for index, x in enumerate(target_category_list) if
+                                       x == 'y']
+                    period_indices = [index for index, x in enumerate(target_category_list) if
+                                 x == '.']
                     b_legal_indices = [index for index, x in enumerate(target_category_list) if
                                        x == 'B_Legal' or x == 'B_Present']
+                    b_current_indices = [index for index, x in enumerate(target_category_list) if x == 'B_Present']
                     b_illegal_indices = [index for index, x in enumerate(target_category_list) if
                                          x == 'B_Illegal']
                     b_omit_indices = [index for index, x in enumerate(target_category_list) if x == 'B_Omitted']
                     a_legal_indices = [index for index, x in enumerate(target_category_list) if
                                        x == 'A_Legal' or x == 'A_Present']
+                    a_current_indices = [index for index, x in enumerate(target_category_list) if x == 'A_Present']
                     a_illegal_indices = [index for index, x in enumerate(target_category_list) if
                                          x == 'A_Illegal']
                     a_omit_indices = [index for index, x in enumerate(target_category_list) if
                                       x == 'A_Omitted']
                     if token in self.token_list:
+                        model_analysis_dict['current_B'].append(output_array[b_current_indices])
+                        b_legal_only_indices = list(set(b_legal_indices) - set(b_current_indices))
+                        model_analysis_dict['legal_B'].append(output_array[b_legal_only_indices])
+                        model_analysis_dict['omit_B'].append(output_array[b_omit_indices])
+                        model_analysis_dict['illegal_B'].append(output_array[b_illegal_indices])
+                        # B_sub_activation = sum(output_array[b_legal_indices], output_array[b_omit_indices])
+                        # model_analysis_dict['B_token'].append(B_sub_activation / 3)
+                        # model_analysis_dict['B_sub'].append(B_sub_activation)
+                        # model_analysis_dict['B_cat'].append(B_sub_activation + sum(output_array[b_illegal_indices]))
                         prediction_count_dict[target_category_list[prediction]] += 1
                         token_category_index = self.token_category_index_dict[token_category]
                         if max(output_array[b_legal_indices]) > max(output_array[b_illegal_indices]):
@@ -180,6 +200,15 @@ class SequencePredictions:
                                                                                             m] / target_category_freq
                     else:
                         if token_category == '.':
+                            model_analysis_dict['current_A'].append(output_array[a_current_indices])
+                            a_legal_only_indices = list(set(a_legal_indices) - set(a_current_indices))
+                            model_analysis_dict['legal_A'].append(output_array[a_legal_only_indices])
+                            model_analysis_dict['omit_A'].append(output_array[a_omit_indices])
+                            model_analysis_dict['illegal_A'].append(output_array[a_illegal_indices])
+                            # A_sub_activation = sum(output_array[a_legal_indices], output_array[a_omit_indices])
+                            # model_analysis_dict['A_token'].append(A_sub_activation/3)
+                            # model_analysis_dict['A_sub'].append(A_sub_activation)
+                            # model_analysis_dict['A_cat'].append(A_sub_activation+sum(output_array[a_illegal_indices]))
                             if target_category_list[prediction] == 'A_Present' \
                                     or target_category_list[prediction] == 'A_Legal':
                                 correct_count_dict['A_subgroup_correct'] += 1
@@ -188,8 +217,35 @@ class SequencePredictions:
                             if max(output_array[a_omit_indices]) >= max(output_array[a_illegal_indices]):
                                 correct_count_dict['A_omit_correct'] += 1
                         if token_category == 'A':
+                            model_analysis_dict['current_y'].append(sum(output_array[y_indices]) / len(y_indices))
                             if target_category_list[prediction] == 'y':
                                 correct_count_dict['y_group_correct'] += 1
+                        if token_category == 'B':
+                            model_analysis_dict['period'].append(output_array[period_indices])
+        model_analysis_dict_final = {}
+        for key, value in model_analysis_dict.items():
+            model_analysis_dict[key] = np.mean(np.array(model_analysis_dict[key]))
+        model_analysis_dict_final['A'] = {'current': model_analysis_dict['current_A'],
+                                          'legal': model_analysis_dict['legal_A'],
+                                          'omit':model_analysis_dict['omit_A'],
+                                          'illegal':model_analysis_dict['illegal_A']}
+        model_analysis_dict_final['y'] = {'current': model_analysis_dict['current_y'],
+                                          'legal': 0,
+                                          'omit': 0,
+                                          'illegal': 0}
+        model_analysis_dict_final['B'] = {'current': model_analysis_dict['current_B'],
+                                          'legal': model_analysis_dict['legal_B'],
+                                          'omit' :model_analysis_dict['omit_B'],
+                                          'illegal':model_analysis_dict['illegal_B']}
+        model_analysis_dict_final['.'] = {'current': model_analysis_dict['period'],
+                                          'legal': 0,
+                                          'omit': 0,
+                                          'illegal': 0}
+
+
+        self.model_analysis_df = pd.DataFrame(model_analysis_dict_final)
+        self.model_analysis_df = self.model_analysis_df.reset_index()
+        self.model_analysis_df.rename(columns={'index': 'Type'}, inplace=True)
         self.accuracy_dict = {key: round(value / len(document), 2) for key, value in correct_count_dict.items()}
         sum_matrix_row_sums = self.output_activation_sum_matrix.sum(1)
         safe_inverse = np.divide(1.0, sum_matrix_row_sums, where=sum_matrix_row_sums != 0,

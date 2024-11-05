@@ -1,6 +1,7 @@
 import copy
 import numpy as np
-
+import pandas as pd
+from collections import defaultdict
 
 class SimilarityMatrices:
 
@@ -68,6 +69,63 @@ class SimilarityMatrices:
 
         if self.instance_category_index_dict is not None or self.target_category_index_dict is not None:
             self.create_category_similarity_matrix()
+
+        if instance_list is not None:
+            sub_ranking_dict = self.get_top_similar_words(self.instance_similarity_matrix, self.instance_list, 3)
+            model_analysis_dict = defaultdict(list)
+
+            for key, value in sub_ranking_dict.items():
+                a_same_sub = 0
+                a_oppo_sub = 0
+                b_same_sub = 0
+                b_oppo_sub = 0
+                if self.instance_categories.instance_category_dict[key] == 'A':
+                    for word in value:
+                        if self.instance_categories.instance_category_dict[word] == 'A':
+                            if self.instance_categories.instance_subcategory_dict[key] == self.instance_categories.instance_subcategory_dict[word]:
+                                a_same_sub += 1
+                            else:
+                                a_oppo_sub += 1
+                    model_analysis_dict['a_same_sub'].append(a_same_sub / 3)
+                    model_analysis_dict['a_oppo_sub'].append(a_oppo_sub / 3)
+                else:
+                    for word in value:
+                        if self.instance_categories.instance_category_dict[word] == 'B':
+                            if self.instance_categories.instance_subcategory_dict[key] == self.instance_categories.instance_subcategory_dict[word]:
+                                b_same_sub += 1
+                            else:
+                                b_oppo_sub += 1
+                    model_analysis_dict['b_same_sub'].append(b_same_sub / 3)
+                    model_analysis_dict['b_oppo_sub'].append(b_oppo_sub / 3)
+
+            cat_ranking_dict = self.get_top_similar_words(self.instance_similarity_matrix, instance_list, 6)
+
+            for key, value in cat_ranking_dict.items():
+                a_oppo_cat = 0
+                b_oppo_cat = 0
+                if self.instance_categories.instance_category_dict[key] == 'A':
+                    for word in value:
+                        if self.instance_categories.instance_category_dict[word] != 'A':
+                            a_oppo_cat += 1
+                    model_analysis_dict['a_oppo_cat'].append(a_oppo_cat / 6)
+                else:
+                    for word in value:
+                        if self.instance_categories.instance_category_dict[word] != 'B':
+                            b_oppo_cat += 1
+                    model_analysis_dict['b_oppo_cat'].append(a_same_sub / 6)
+            model_analysis_dict_final = {}
+            for key, value in model_analysis_dict.items():
+                model_analysis_dict[key] = np.round(np.mean(np.array(model_analysis_dict[key])), 2)
+            model_analysis_dict_final['A'] = {'subcategory': model_analysis_dict['a_same_sub'],
+                                              'opposite subcategory': model_analysis_dict['a_oppo_sub'],
+                                              'opposite category': model_analysis_dict['a_oppo_cat']}
+            model_analysis_dict_final['B'] = {'subcategory': model_analysis_dict['b_same_sub'],
+                                              'opposite subcategory': model_analysis_dict['b_oppo_sub'],
+                                              'opposite category': model_analysis_dict['b_oppo_cat']}
+
+            self.model_analysis_df = pd.DataFrame(model_analysis_dict_final)
+            self.model_analysis_df = self.model_analysis_df.reset_index()
+            self.model_analysis_df.rename(columns={'index': 'Type'}, inplace=True)
 
     def get_instance_list(self):
         # the list of words that are used to build the similarity matrices
@@ -238,7 +296,7 @@ class SimilarityMatrices:
             print()
 
     @staticmethod
-    def get_top_similar_words(similarity_matrix, vocab_list, top_n=5):
+    def get_top_similar_words(similarity_matrix, vocab_list, top_n=3):
         if similarity_matrix.shape[0] != similarity_matrix.shape[1]:
             raise ValueError("Similarity matrix must be square.")
         if len(vocab_list) != similarity_matrix.shape[0]:
@@ -248,8 +306,10 @@ class SimilarityMatrices:
         for i, word in enumerate(vocab_list):
             # Get the similarity scores for the current word
             similarity_scores = similarity_matrix[i]
-            # Get the indices of the top N most similar words, excluding the word itself
-            top_indices = np.argsort(similarity_scores)[::-1][1:top_n + 1]
+            # # Get the indices of the top N most similar words, excluding the word itself
+            # top_indices = np.argsort(similarity_scores)[::-1][1:top_n + 1]
+            # Get the indices of the top N most similar words, not excluding the word itself
+            top_indices = np.argsort(similarity_scores)[::-1][:top_n]
             # Get the corresponding words from vocab_list
             top_words = [vocab_list[idx] for idx in top_indices]
             # Store the results in the dictionary
