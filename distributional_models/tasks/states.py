@@ -166,7 +166,7 @@ class States:
         self.output_weights = self.model.get_weights('output')
         self.hidden_size = self.output_weights.shape[1]
         self.output_bias_weights = self.model.get_weights('output_bias')
-        if self.model.model_type != 'mlp':
+        if self.model.model_type != 'mlp' and self.model.model_type != 'slp':
             self.hidden_weights = self.model.get_weights('hidden')
             self.hidden_bias_weights = self.model.get_weights('hidden_bias')
             if self.model.model_type == 'lstm':

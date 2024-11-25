@@ -3,6 +3,9 @@ import torch
 from ..models.srn import SRN
 from ..models.lstm import LSTM
 from ..models.mlp import MLP
+from ..models.slp import SLP
+from ..models.slro import SLRO
+from ..models.mlr import MLR
 from ..models.transformer import Transformer
 
 
@@ -37,7 +40,32 @@ def create_model(model_index, vocab_list, train_params):
     elif train_params['model_type'] == 'w2v':
         model = MLP(vocab_list,
                     train_params['w2v_embedding_size'],
+                    train_params['add_on'],
                     train_params['w2v_hidden_size'],
+                    train_params['weight_init_hidden'],
+                    train_params['dropout_rate'],
+                    train_params['activation_function'])
+
+    elif train_params['model_type'] == 'mlr':
+        model = MLR(vocab_list,
+                    train_params['mlr_embedding_size'],
+                    train_params['add_on'],
+                    train_params['mlr_hidden_size'],
+                    train_params['weight_init_hidden'],
+                    train_params['dropout_rate'],
+                    train_params['activation_function'])
+
+    elif train_params['model_type'] == 'slp':
+        model = SLP(vocab_list,
+                    train_params['sl_embedding_size'],
+                    train_params['add_on'],
+                    train_params['weight_init_hidden'],
+                    train_params['dropout_rate'],
+                    train_params['activation_function'])
+
+    elif train_params['model_type'] == 'slro':
+        model = SLRO(vocab_list,
+                    train_params['sl_embedding_size'],
                     train_params['weight_init_hidden'],
                     train_params['dropout_rate'],
                     train_params['activation_function'])

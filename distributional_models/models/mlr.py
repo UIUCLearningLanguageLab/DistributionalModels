@@ -1,30 +1,33 @@
 import time
 import torch
 import torch.nn as nn
-from .neural_network import NeuralNetwork
-from datetime import datetime
 import copy
+import torch.nn.functional as F
+from .neural_network import NeuralNetwork
+import pandas as pd
+from datetime import datetime
+import csv
 
 
-class SRN(NeuralNetwork):
+class MLR(NeuralNetwork):
     def __init__(self,
                  vocab_list,
                  embedding_size,
+                 add_on,
                  hidden_size,
                  weight_init,
                  dropout_rate,
-                 act_func,
-                 use_bias=True):
+                 act_func):
 
-        super(SRN, self).__init__(vocab_list)
-        self.model_type = "srn"
+        super(MLR, self).__init__(vocab_list)
+        self.model_type = "mlr"
         self.model_name = None
         self.embedding_size = embedding_size
+        self.add_on = add_on
         self.hidden_size = hidden_size
         self.weight_init = weight_init
         self.dropout_rate = dropout_rate
         self.activation_function = act_func
-        self.use_bias = use_bias
 
         self.define_network()
         self.create_model_name()
@@ -33,23 +36,33 @@ class SRN(NeuralNetwork):
         if self.embedding_size == 0:
             embedding_weights = torch.eye(self.vocab_size)
             self.layer_dict['embedding'] = nn.Embedding.from_pretrained(embedding_weights, freeze=True)
-            self.layer_dict['srn'] = nn.RNN(self.vocab_size, self.hidden_size, dropout=self.dropout_rate,
-                                            batch_first=True, nonlinearity=self.activation_function)
+            self.layer_dict['hidden'] = nn.Linear(self.vocab_size, self.hidden_size)
         else:
             self.layer_dict['embedding'] = nn.Embedding(self.vocab_size, self.embedding_size)
-            self.layer_dict['srn'] = nn.RNN(self.embedding_size, self.hidden_size, dropout=self.dropout_rate,
-                                            batch_first=True, nonlinearity=self.activation_function)
+            self.layer_dict['hidden'] = nn.Linear(self.embedding_size, self.hidden_size)
+        if self.activation_function == 'relu':
+            self.layer_dict['activation'] = nn.ReLU()
+        elif self.activation_function == 'tanh':
+            self.layer_dict['activation'] = nn.Tanh()
+
+        if self.dropout_rate > 0:
+            self.layer_dict['dropout'] = nn.Dropout(self.dropout_rate)
+
+        self.layer_dict['feedback'] = nn.Linear(self.vocab_size, self.hidden_size, bias=False)
+        self.layer_dict['recurrent'] = nn.Linear(self.hidden_size, self.hidden_size, bias=False)
 
         self.layer_dict['output'] = nn.Linear(self.hidden_size, self.vocab_size)
 
+
     def create_model_name(self):
         date_time_string = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.model_name = f"srn_{self.embedding_size}_{self.hidden_size}_{date_time_string}"
+        self.model_name = f"mlro{self.add_on}_{self.embedding_size}_{self.hidden_size}_{date_time_string}"
 
     def init_network(self, batch_size):
         self.state_dict = {}
         num_layers = 1
-        self.state_dict['hidden'] = torch.zeros(num_layers, batch_size, self.hidden_size).to(self.device)
+        self.state_dict['feedback'] = torch.zeros(batch_size, self.vocab_size).to(self.device)
+        self.state_dict['hidden'] = torch.zeros(batch_size, self.hidden_size).to(self.device)
 
     def train_sequence(self, dataset, sequence, train_params):
         start_time = time.time()
@@ -65,28 +78,27 @@ class SRN(NeuralNetwork):
         x_batches, \
         single_y_batches, \
         y_window_batches, = dataset.create_batched_sequence_lists(sequence,
-                                                                 corpus_window_size,
-                                                                 train_params['corpus_window_direction'],
-                                                                 train_params['batch_size'],
-                                                                 train_params['sequence_length'],
-                                                                 self.device)
+                                                                  corpus_window_size,
+                                                                  train_params['corpus_window_direction'],
+                                                                  train_params['batch_size'],
+                                                                  train_params['sequence_length'],
+                                                                  self.device)
 
         y_batches = single_y_batches
-        self.init_network(train_params['batch_size'])
 
+        self.init_network(train_params['batch_size'])
         for batch_num, (x_batch, y_batch) in enumerate(zip(x_batches, y_batches)):
-            #print(batch_num, x_batch, y_batch)
             self.init_network(train_params['batch_size'])
             self.optimizer.zero_grad()
             output = self(x_batch)
-            self.state_dict['hidden'] = self.state_dict['hidden'].detach()
-
             if train_params['l1_lambda']:
                 l1_norm = sum(p.abs().sum() for p in self.parameters())
                 loss = self.criterion(output.view(-1, dataset.num_y),
                                       y_batch.view(-1)) + train_params['l1_lambda'] * l1_norm
             else:
                 loss = self.criterion(output.view(-1, dataset.num_y), y_batch.view(-1))
+            self.state_dict['hidden'] = self.state_dict['hidden'].detach()
+            self.state_dict['feedback'] = output.detach()
 
             mask = y_batch.view(-1) != 0
             loss = (loss * mask).mean()
@@ -121,36 +133,52 @@ class SRN(NeuralNetwork):
         for sequence in sequence_list:
             previous_state_list.append(self.state_dict['hidden'].squeeze().numpy())
             outputs = self(torch.tensor([sequence])).detach()
+
             self.state_dict['hidden'] = self.state_dict['hidden'].detach()
+            self.state_dict['feedback'] = outputs
             hidden_state_list.append(self.state_dict['hidden'].squeeze().numpy())
+
             if softmax:
                 outputs = torch.nn.functional.softmax(outputs, dim=1).squeeze().numpy()
             else:
                 outputs = outputs.squeeze().numpy()
+
             output_list.append(outputs)
 
         return previous_state_list, output_list, hidden_state_list
 
     def forward(self, x):
-        embedding_out = self.layer_dict['embedding'](x)
-        # SRN layer
-        srn_out, self.state_dict['hidden'] = self.layer_dict['srn'](embedding_out, self.state_dict['hidden'])
-        # srn_out, hidden = self.layer_dict['srn'](embedding_out, hidden)
-
-        # Only take the output from the final timestep
-        # You can modify this part to return the output at each timestep
-        srn_out = srn_out[:, -1, :]
-        # Output layer
-        out = self.layer_dict['output'](srn_out)
-        return out
+        batch_size, seq_length = x.shape
+        mlro_outs = []
+        for t in range(seq_length):
+            x_t = x[:, t]
+            embedding_out = self.layer_dict['embedding'](x_t)
+            zhidden = self.layer_dict['hidden'](embedding_out)
+            if self.add_on == 'oh':
+                hidden = self.layer_dict['activation'](zhidden + self.layer_dict['feedback'](self.state_dict['feedback'])
+                                                       + self.layer_dict['recurrent'](self.state_dict['hidden']))
+            elif self.add_on == 'o':
+                hidden = self.layer_dict['activation'](
+                    zhidden + self.layer_dict['feedback'](self.state_dict['feedback']))
+            elif self.add_on == 'h':
+                hidden = self.layer_dict['activation'](
+                    zhidden + self.layer_dict['recurrent'](self.state_dict['hidden']))
+            if self.dropout_rate:
+                hidden = self.layer_dict['dropout'](hidden)
+            self.state_dict['hidden'] = hidden
+            mlro_outs.append(hidden)
+            # Output layer
+        mlro_outs = torch.stack(mlro_outs, dim=1)
+        # self.state_dict['hidden'] = mlro_outs[:, -1, :]
+        self.state_dict['output'] = self.layer_dict['output'](self.state_dict['hidden'])
+        return self.state_dict['output']
 
     def get_states(self, x, layer):
         o = self(x)  # [1,5,vocab_size]
-        if layer == 'hidden':
-            state = self.state_dict["hidden"]
+        if layer in ['zhidden', 'hidden']:
+            state = self.state_dict[layer]
         elif layer == 'output':
             state = o
         else:
-            raise ValueError(f"Improper layer request {layer} for SRN")
-
+            raise ValueError(f"Improper layer request {layer} for MLP")
         return state

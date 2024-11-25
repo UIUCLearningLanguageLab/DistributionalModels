@@ -85,11 +85,13 @@ class NeuralNetwork(nn.Module):
                         tensor = self.layer_dict['srn'].weight_ih_l0.t()
                     else:
                         tensor = self.layer_dict['embedding'].weight()
-                elif self.model_type == 'mlp':
+                elif self.model_type == 'mlp' or self.model_type == 'mlr':
                     if self.embedding_size == 0:
                         tensor = self.layer_dict['hidden'].weight.t()
                     else:
                         tensor = self.layer_dict['embedding'].weight
+                elif self.model_type == 'slp' or self.model_type == 'slro':
+                    tensor = self.layer_dict['output'].weight.t()
                 elif self.model_type == 'transformer':
                     tensor = self.layer_dict['token_embeddings_table'].weight
                 else:
@@ -108,8 +110,10 @@ class NeuralNetwork(nn.Module):
                     tensor = self.layer_dict['lstm'].bias_ih_l0.t()
                 elif self.model_type == 'srn':
                     tensor = self.layer_dict['srn'].bias_ih_l0.t()
-                elif self.model_type == 'mlp':
+                elif self.model_type == 'mlp' or self.model_type == 'mlr':
                     tensor = self.layer_dict['hidden'].bias.t()
+                elif self.model_type == 'slp' or self.model_type == 'slro':
+                    tensor = self.layer_dict['output'].bias.t()
                 elif self.model_type == 'transformer':
                     tensor = self.layer_dict['token_embeddings_table'].weight
                 else:
